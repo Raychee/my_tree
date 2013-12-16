@@ -1,0 +1,13 @@
+set args data/data6.txt
+b main
+r
+
+b MySolver.solve
+c
+
+set gd_param->v = 2
+set sgd_param->show_obj_each_epoch_ = true
+set sgd_param->n_epoch = 100
+
+set my_param->n_iter = 100
+set my_param->lambda = 1e-4

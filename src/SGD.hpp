@@ -27,7 +27,7 @@ public:
                 char         _verbosity            = 1,
                 _COMP_T      _eta0                 = 0,
                 unsigned int _n_iter               = 200,
-                _COMP_T      _err                  = 1e-4,
+                _COMP_T      _err                  = 1e-8,
                 float        _eta0_try_sample_rate = 0.3,
                 _COMP_T      _eta0_try_1st         = 0.1,
                 _COMP_T      _eta0_try_factor      = 3,
@@ -240,7 +240,7 @@ public:
     /// Parameter structure for a general Stochastic Gradient Descent solver model
     class SGDParam {
     public:
-        SGDParam(unsigned int _n_epoch             = 5,
+        SGDParam(unsigned int _n_epoch             = 200,
                  bool         _show_obj_each_epoch = false);
         ~SGDParam() {}
 
@@ -265,9 +265,9 @@ public:
     SGD(_DAT_DIM_T   _dimension            = 0,
         char         _verbosity            = 1,
         _COMP_T      _eta0                 = 0,
-        unsigned int _n_epoch              = 5,
+        unsigned int _n_epoch              = 200,
         unsigned int _n_iter               = 200,
-        _COMP_T      _err                  = 1e-4,
+        _COMP_T      _err                  = 1e-8,
         float        _eta0_try_sample_rate = 0.3,
         _COMP_T      _eta0_try_1st         = 0.1,
         _COMP_T      _eta0_try_factor      = 3,
@@ -530,7 +530,7 @@ train() {
     _COMP_T obj1;
     for (t = 0; t < n_iter; ++t) {
         if (verbosity >= 2) {
-            std::cout << "Training: Iteration " << t << " ... " << std::flush;
+            std::cout << "Training: Iteration " << t + 1 << " ... " << std::flush;
         }
         eta = compute_learning_rate(eta0, t);
         if (x) {
@@ -551,9 +551,9 @@ train() {
         // DEBUG
         std::ostream* out = gd_param->ostream_of_training_process();
         if (out) {
-            *out << obj1;
-            *out << " ";
             ostream_param(*out);
+            *out << " ";
+            *out << obj1;
             *out << "\n";
         }
         if (obj0 - obj1 < err) break;
@@ -563,8 +563,10 @@ train() {
         std::cout << "Done." << std::endl;
     }
     if (verbosity >= 1) {
-        if (t < n_iter) std::cout << "Training stopped with convergence.";
-        else std::cout << "Max number of iterations has been reached.";
+        if (t < n_iter)
+            std::cout << "Training stopped at iteration " << t + 1 << " with convergence.";
+        else
+            std::cout << "Max number of iterations has been reached.";
         std::cout << "\nGD Training: finished." << std::endl;
     }
     return *this;
@@ -640,7 +642,7 @@ inline GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 ostream_this(std::ostream& out) {
     out << "Data: " << stat.num_of_samples() << " samples, "
-        << stat.num_of_labels() << "classes.\n";
+        << stat.num_of_labels() << " classes.\n";
     gd_param->ostream_this(out);
     return *this;
 }
@@ -838,14 +840,15 @@ train() {
     _N_DAT_T* x = new _N_DAT_T[n_sample];
     _COMP_T obj0 = std::numeric_limits<_COMP_T>::max();
     _COMP_T obj1;
-    while (this->t < n_epoch * n_sample) {
+    unsigned int i;
+    for (i = 0; i < n_epoch; ++i) {
         if (verbosity >= 2)
             std::cout << "Shuffling the data set... " << std::flush;
         // re-shuffle the data
         this->stat.rand_index(x, n_sample);
         if (verbosity >= 2) std::cout << "Done." << std::endl; 
         if (verbosity >= 1) {
-            std::cout << "Training: Epoch = " << this->t / n_sample + 1  << " ... ";
+            std::cout << "Training: Epoch = " << i + 1  << " ... ";
             if (verbosity >= 3) std::cout << std::endl;
             else std::cout.flush();
         }
@@ -858,11 +861,23 @@ train() {
             }
             std::cout << std::endl;
         }
+        // DEBUG
+        std::ostream* out = this->gd_param->ostream_of_training_process();
+        if (out) {
+            this->ostream_param(*out);
+            *out << " ";
+            *out << obj1 << "\n";
+        }
         if (obj0 - obj1 < err) break;
         else obj0 = obj1;
     }
+
     if (verbosity >= 1) {
-        std::cout << "SGD Training: finished." << std::endl;
+        if (i < n_epoch)
+            std::cout << "Training stopped at epoch " << i + 1 << " with convergence.";
+        else 
+            std::cout << "Max number of epoches has been reached.";
+        std::cout << "\nSGD Training: finished." << std::endl;
     }
     delete[] x;
     return *this;
@@ -906,16 +921,6 @@ train_epoch(_DAT_DIM_T _d, _N_DAT_T* _x, _N_DAT_T _s_x, char _v) {
                 std::cout << " Objective = " << obj;
             }
             std::cout << std::endl;
-        }
-
-        // DEBUG
-        std::ostream* out = this->gd_param->ostream_of_training_process();
-        if (out) {
-            if (obj) *out << obj;
-            else *out << this->compute_obj(this->data, _d, _x, _s_x, this->y);
-            *out << " ";
-            this->ostream_param(*out);
-            *out << "\n";
         }
     }
     return *this;

@@ -11,7 +11,7 @@ CC = clang++
 LD = clang++
 
 ifeq ($(SCHEME), DEBUG)
-CFLAGS = -Wall -Wextra -pedantic -pipe -ggdb3 -std=c++11
+CFLAGS = -Wall -Wextra -pedantic -pipe -ggdb3 -std=c++11 -stdlib=libc++
 LFLAGS = 
 else
 CFLAGS = -pipe -O3
