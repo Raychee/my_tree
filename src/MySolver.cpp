@@ -63,14 +63,22 @@ MySolver& MySolver::ostream_param(std::ostream& out) {
 
 MySolver& MySolver::solve(N_DAT_T* x_pos, N_DAT_T& n_x_pos,
                           N_DAT_T* x_neg, N_DAT_T& n_x_neg) {
-    DAT_DIM_T    dim        = gd_param->dimension();
-    char         verbosity  = my_param->verbosity();
-    unsigned int n_iter     = my_param->num_of_iterations();
-    COMP_T       err        = my_param->accuracy();
-    bool         show_p     = my_param->show_p_each_iter();
-    SUPV_T       s_labelset = stat.num_of_labels();
-    N_DAT_T      n_sample   = stat.num_of_samples();
-    COMP_T       p_diff;
+    DAT_DIM_T     dim         = gd_param->dimension();
+    char          gd_v        = gd_param->verbosity();
+    bool   show_obj_each_iter = gd_param->show_obj_each_iteration();
+    std::ostream* out         = my_param->ostream_of_training_process();
+    char          my_v        = my_param->verbosity();
+    unsigned int  n_iter      = my_param->num_of_iterations();
+    unsigned int  n_iter_fine = my_param->num_of_fine_tuning();
+    COMP_T        err         = my_param->accuracy();
+    bool          show_p      = my_param->show_p_each_iter();
+    SUPV_T        s_labelset  = stat.num_of_labels();
+    N_DAT_T       n_sample    = stat.num_of_samples();
+    N_DAT_T       s_batch     = sgd_param->size_of_batches();
+    N_DAT_T       n_batch     = n_sample / s_batch;
+    N_DAT_T       n_remain    = n_sample - s_batch * n_batch;
+    COMP_T        p_diff;
+    N_DAT_T*      rand_x;
     if (!w) w = new COMP_T[dim];
     if (!alloc_p) {
         p = new COMP_T[s_labelset];
@@ -82,72 +90,140 @@ MySolver& MySolver::solve(N_DAT_T* x_pos, N_DAT_T& n_x_pos,
     p_margin[1] = new COMP_T[s_labelset];
     p_margin[2] = new COMP_T[s_labelset];
     term2 = new COMP_T[dim];
-    if (verbosity >= 1) {
-        std::cout << "MySolver Training: \n\tData: " << n_sample << " samples, "
-                  << dim << " feature dimensions.\n\tStopping Criterion: "
+    if (my_v >= 1) {
+        std::cout << "MySolver Training: \n    Data: " << n_sample << " samples, "
+                  << dim << " feature dimensions.\n    Stopping Criterion: "
                   << n_iter << " iterations";
         if (err > 0) std::cout << " or accuracy higher than " << err;
-        std::cout <<  "." << std::endl;
+        std::cout <<  ".\nMySolver Training: begin." << std::endl;
     }
-    if (verbosity == 1) {
-        std::cout << "Training ... " << std::flush;
-    }
-    if (verbosity >= 2) {
+    if (my_v >= 1) {
         std::cout << "Initializing parameters ... ";
     }
-    initialize(dim, s_labelset, n_sample,
-               x_pos, n_x_pos, x_neg, n_x_neg);
-    if (verbosity >= 2) {
+    initialize(dim, s_labelset, n_sample, x_pos, n_x_pos, x_neg, n_x_neg);
+    if (my_v >= 1) {
         std::cout << "Done.";
         if (show_p) {
-            std::cout << "\n\t";
+            std::cout << "\n    p = ";
             for (SUPV_T i = 0; i < s_labelset; ++i) {
                 std::cout << "[" << stat.label(i) << "|" << p[i] << "]";
             }
         }
         std::cout << std::endl;
     }
+    if (!gd_param->init_learning_rate()) try_learning_rate();
+    // COMP_T eta0 = gd_param->init_learning_rate();
+    if (x) rand_x = x;
+    else {
+        rand_x = new N_DAT_T[n_sample];
+        for (N_DAT_T i = 0; i < n_sample; ++i) {
+            rand_x[i] = i;
+        }
+    }
+    if (my_v >= 1) {
+        std::cout << "Training ... ";
+        if (my_v > 1 || gd_v >= 1) std::cout << std::endl;
+        else std::cout.flush();
+    }
+    t = 0;
     unsigned int i;
     for (i = 0; i < n_iter; ++i) {
-        if (verbosity >= 2) {
-            std::cout << "My Solver Training: Iteration " << i + 1 << " ... ";
-            if (verbosity >= 3) {
-                std::cout << "\n\tTraining SVM ... ";
-            }
-            std::cout << std::endl;
+        if (my_v >= 2) {
+            std::cout << "    Iteration " << i + 1 << " ... ";
+            if (my_v >= 3) std::cout << "\n        Updating [w, b] ... ";
+            if (gd_v >= 1) std::cout << std::endl;
+            else std::cout.flush();
         }
-        t = 0;
         train();
-        if (verbosity >= 3) {
-            std::cout << "Done.\n\tUpdating p ... " << std::flush;
+        if (my_v >= 3) {
+            if (gd_v < 1) std::cout << "Done.\n";
+            std::cout << "        Updating p ... " << std::flush;
         }
         p_diff = update_p(dim, x_pos, n_x_pos, x_neg, n_x_neg);
-        if (verbosity >= 2) {
-            std::cout << "Done.";
+        if (my_v >= 2) {
+            if (my_v == 2 && gd_v >= 1) std::cout << "\n        ";
+            else std::cout << "Done. ";
+            std::cout << "eta = " << eta;
+            if (show_obj_each_iter) {
+                std::cout << ", Objective = "
+                          << compute_obj(data, dim, rand_x, n_sample, y);
+            }
             if (show_p) {
-                std::cout << "\n\t";
+                std::cout << ", p = ";
                 for (SUPV_T i = 0; i < s_labelset; ++i) {
                     std::cout << "[" << stat.label(i) << "|" << p[i] << "]";
                 }
             }
-            std::cout << std::endl;
+            std::cout << "." << std::endl;
+        }
+        // DEBUG
+        if (out) {
+            this->ostream_param(*out);
+            *out << std::endl;
+        }
+    }
+
+    if (my_v >= 1) {
+        if (my_v == 1 && gd_v < 1) std::cout << "Done.\n";
+        std::cout << "Fine-tuning ... ";
+        if (my_v > 1 || gd_v >= 1) std::cout << std::endl;
+        else std::cout.flush();
+    }
+    for (i = 0; i < n_iter_fine; ++i) {
+        p_diff = 0;
+        if (my_v >= 3)
+            std::cout << "    Shuffling the data set... " << std::flush;
+        rand_index(rand_x, n_sample);
+        if (my_v >= 3) std::cout << "Done." << std::endl; 
+        if (my_v >= 2) {
+            std::cout << "    Iteration " << i + 1 << " ... ";
+            if (my_v >= 3) std::cout << "\n        Updating [w, b] ... ";
+            if (gd_v >= 1) std::cout << std::endl;
+            else std::cout.flush();
+        }
+        train_epoch(dim, rand_x, s_batch, n_batch, n_remain, my_v);
+        if (my_v >= 3) {
+            if (gd_v < 1) std::cout << "Done.\n";
+            std::cout << "        Updating p ... " << std::flush;
+        }
+        p_diff = update_p(dim, x_pos, n_x_pos, x_neg, n_x_neg);
+        if (my_v >= 2) {
+            if (my_v == 2 && gd_v >= 1) std::cout << "\n        ";
+            else std::cout << "Done. ";
+            std::cout << "eta = " << eta;
+            if (show_obj_each_iter) {
+                std::cout << ", Objective = "
+                          << compute_obj(data, dim, rand_x, n_sample, y);
+            }
+            if (show_p) {
+                std::cout << ", p = ";
+                for (SUPV_T i = 0; i < s_labelset; ++i) {
+                    std::cout << "[" << stat.label(i) << "|" << p[i] << "]";
+                }
+            }
+            std::cout << "." << std::endl;
+        }
+        // DEBUG
+        if (out) {
+            this->ostream_param(*out);
+            *out << std::endl;
         }
         if (err > 0 && p_diff < err) break;
-    }
-    if (verbosity == 1) {
-        std::cout << "Done." << std::endl;
     }
     delete[] margin_x;
     delete[] p_margin[1];
     delete[] p_margin[2];
     delete[] p_margin;
     delete[] term2;
-    if (verbosity >= 1) {
-        if (i < n_iter)
-            std::cout << "Training stopped at iteration " << i + 1 << " with convergence.";
+    if (my_v >= 1) {
+        if (my_v == 1 && gd_v < 1) std::cout << "Done.\n";
+        std::cout << "MySolver Training: finished. \n";
+        if (t < n_iter + n_iter_fine)
+            std::cout << "    Training stopped at iteration " << i + n_iter + 1 
+                      << " with convergence.";
         else
-            std::cout << "Max number of iterations has been reached.";
-        std::cout << "\nMySolver Training: finished." << std::endl;
+            std::cout << "    Max number of iterations has been reached.";
+        std::cout << std::endl;
     }
     return *this;
 }
@@ -171,9 +247,9 @@ COMP_T MySolver::update_p(DAT_DIM_T d,
                 x_pos[n_x_pos++] = x_i;
             }
             else { x_neg[n_x_neg++] = x_i;}
-            if (score >= 1) { margin_x[x_i] = 2; }
-            else if (score <= -1) { margin_x[x_i] = 0; }
-            else { margin_x[x_i] = 1; }
+            // if (score >= 1) { margin_x[x_i] = 2; }
+            // else if (score <= -1) { margin_x[x_i] = 0; }
+            // else { margin_x[x_i] = 1; }
         }
         COMP_T p_new = (COMP_T)n_x_label_pos / n_x_label;
         COMP_T p_diff = p[i] - p_new;
@@ -195,7 +271,7 @@ MySolver& MySolver::train_batch(COMP_T*   data,
         term2[i] = 0;
     }
     COMP_T  term2_b = 0;
-    COMP_T  term3   = eta;
+    COMP_T  term3   = eta / n;
     COMP_T* dat_i   = data;
     for (N_DAT_T i = 0; i < n; ++i, dat_i += d) {
         COMP_T p_i  = p_margin[margin_x[i]][stat.index_of_label(y[i])];
@@ -220,7 +296,7 @@ MySolver& MySolver::train_batch(COMP_T*   data,
         term2[i] = 0;
     }
     COMP_T term2_b = 0;
-    COMP_T term3   = eta;
+    COMP_T term3   = eta / n;
     for (N_DAT_T i = 0; i < n; ++i) {
         N_DAT_T x_i   = x[i];
         COMP_T* dat_i = data + d * x_i;
@@ -256,7 +332,7 @@ COMP_T MySolver::compute_obj(COMP_T*   data,
         COMP_T  neg_loss = score > -1 ? 1 + score : 0;
         loss += p_y * pos_loss + (1 - p_y) * neg_loss;
     }
-    return loss + 0.5 * my_param->regul_coef() * compute_norm(d);
+    return loss / n + 0.5 * my_param->regul_coef() * compute_norm(d);
 }
 // Using Hinge Loss
 COMP_T MySolver::compute_obj(COMP_T*   data,
@@ -273,28 +349,8 @@ COMP_T MySolver::compute_obj(COMP_T*   data,
         COMP_T  neg_loss = score > -1 ? 1 + score : 0;
         loss += p_y * pos_loss + (1 - p_y) * neg_loss;
     }
-    return loss + 0.5 * my_param->regul_coef() * compute_norm(d);
+    return loss / n + 0.5 * my_param->regul_coef() * compute_norm(d);
 }
-
-// MySolver& MySolver::train_one(COMP_T*   data,
-//                               DAT_DIM_T d,
-//                               N_DAT_T   i,
-//                               N_DAT_T   n,
-//                               SUPV_T*   y) {
-//     COMP_T  term1 = 1 - eta * my_param->regul_coef();
-//     COMP_T  term2 = eta;
-//     COMP_T* dat_i = data + d * i;
-//     COMP_T  score = compute_score(dat_i, d);
-//     COMP_T  p_i;
-//     if (score < -1) p_i = p_margin[0][stat.index_of_label(y[i])];
-//     else if (score > 1) p_i = p_margin[2][stat.index_of_label(y[i])];
-//     else p_i = p_margin[1][stat.index_of_label(y[i])];
-//     for (DAT_DIM_T i = 0; i < d; ++i) {
-//         w[i] = term1 * w[i] + term2 * p_i * dat_i[i];
-//     }
-//     b += term2 * p_i;
-//     return *this;
-// }
 
 MySolver& MySolver::initialize(DAT_DIM_T d,
                                SUPV_T    n_label,

@@ -15,33 +15,42 @@ public:
     public:
         MyParam(char         _v                = 1,
                 COMP_T       _lambda           = 0.5,
-                unsigned int _n_iter           = 100,
+                unsigned int _n_iter           = 50,
+                unsigned int _n_iter_fine      = 50,
                 COMP_T       _err              = 0.01,
                 bool         _show_p_each_iter = false)
                :v(_v),
                 lambda(_lambda),
                 n_iter(_n_iter),
+                n_iter_fine(_n_iter_fine),
                 err(_err),
-                show_p_each_iter_(_show_p_each_iter) {}
+                show_p_each_iter_(_show_p_each_iter),
+                out_training_proc(NULL) {}
         ~MyParam() {}
         
         MyParam& verbosity(char _v) { v = _v; return *this; }
         MyParam& regul_coef(COMP_T _lambda) { lambda = _lambda; return *this; }
         MyParam& num_of_iterations(unsigned int _n_iter)
             { n_iter = _n_iter; return *this; }
+        MyParam& num_of_fine_tuning(unsigned int _n_iter_fine)
+            { n_iter_fine = _n_iter_fine; return *this; }
         MyParam& accuracy(COMP_T _err) { err = _err; return *this; }
         MyParam& show_p_each_iter(bool _show)
             { show_p_each_iter_ = _show; return *this; }
+        MyParam& ostream_of_training_process(std::ostream& _out_training_proc)
+            { out_training_proc = &_out_training_proc; return *this; }
 
-        char         verbosity()         const { return v; }
-        COMP_T       regul_coef()        const { return lambda; }
-        unsigned int num_of_iterations() const { return n_iter; }
-        COMP_T       accuracy()          const { return err; }
-        bool         show_p_each_iter()  const { return show_p_each_iter_; }
+        char          verbosity()                   const { return v; }
+        COMP_T        regul_coef()                  const { return lambda; }
+        unsigned int  num_of_iterations()           const { return n_iter; }
+        unsigned int  num_of_fine_tuning()          const { return n_iter_fine; }
+        COMP_T        accuracy()                    const { return err; }
+        bool          show_p_each_iter()            const { return show_p_each_iter_; }
+        std::ostream* ostream_of_training_process() const { return out_training_proc; }
 
         MyParam& ostream_this(std::ostream& out) {
             out << "MySolver parameters:\n"
-                << "\tVerbosity = " << v << "\n"
+                << "\tVerbosity = " << (int)v << "\n"
                 << "\tRegularization coefficient = " << lambda << "\n"
                 << "\tMax number of iterations = " << n_iter << "\n"
                 << "\tStopping accuracy = " << err;
@@ -49,11 +58,13 @@ public:
         }
 
     private:
-        char         v;
-        COMP_T       lambda;      ///< trade-off between regularization & loss
-        unsigned int n_iter;
-        COMP_T       err;
-        bool         show_p_each_iter_;
+        char          v;
+        COMP_T        lambda;      ///< trade-off between regularization & loss
+        unsigned int  n_iter;      ///< number of normal iterations
+        unsigned int  n_iter_fine; ///< number of extra iterations for fine tuning
+        COMP_T        err;
+        bool          show_p_each_iter_;
+        std::ostream* out_training_proc;
     };//class MyParam
 
     MySolver(GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&  _gd_param,
@@ -153,8 +164,8 @@ private:
                          N_DAT_T* x_pos, N_DAT_T& n_x_pos,
                          N_DAT_T* x_neg, N_DAT_T& n_x_neg);
 
-    COMP_T compute_score(COMP_T* dat_i, DAT_DIM_T d) const;
-    COMP_T compute_norm(DAT_DIM_T d) const;
+    COMP_T    compute_score(COMP_T* dat_i, DAT_DIM_T d) const;
+    COMP_T    compute_norm(DAT_DIM_T d) const;
 
     // Inherited functions
     virtual MySolver* duplicate_this() { return new MySolver(*this); }

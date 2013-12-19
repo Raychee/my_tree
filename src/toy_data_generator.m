@@ -137,6 +137,12 @@ elseif strcmp(get(handles.generator, 'UserData'), 'model')
     i = data{2};
     h_line = data{3};
     intv = str2double(get(handles.edit_intv, 'String'));
+    if i > size(W, 1)
+        set(handles.generator, 'UserData', 'data');
+        delete(h_line);
+        set(handles.edit_intv, 'String', '1');
+        return;
+    end
     if intv > 0
         for h = i : size(W, 1)
             fprintf('hyperplane: %g * x + %g * y + %g = 0\n', W(h, 1:3));
@@ -157,12 +163,7 @@ elseif strcmp(get(handles.generator, 'UserData'), 'model')
         i = size(W, 1);
         set(handles.edit_intv, 'String', '0');
     else
-        if i > size(W, 1)
-            set(handles.generator, 'UserData', 'data');
-            delete(h_line);
-            set(handles.edit_intv, 'String', '1');
-            return;
-        end
+        
         fprintf('hyperplane: %g * x + %g * y + %g = 0\n', W(i, 1:3));
         w1 = W(i, 1); w2 = W(i, 2); b = W(i, 3);
         if w1 ~= 0 && w2 / w1 > -1 && w2 / w1 < 1

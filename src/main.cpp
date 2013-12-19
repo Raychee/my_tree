@@ -33,9 +33,9 @@ int main(int argc, const char** argv)
 
     std::ofstream file("data/log.txt");
     gd_param.ostream_of_training_process(file);
-    sgd_param.show_obj_each_epoch(true);
     my_param.verbosity(3);
     my_param.show_p_each_iter(true);
+    my_param.ostream_of_training_process(file);
 
     MySolver solver(gd_param, sgd_param, my_param);
 
@@ -159,8 +159,6 @@ void read_args(int argc, const char** argv,
             case 3  : ++i; my_param.regul_coef(std::atof(argv[i])); break;
             case 5  : ++i; sgd_param.num_of_epoches(std::atoi(argv[i]));
             case 6  : ++i; sgd_param.num_of_epoches(std::atoi(argv[i])); break;
-            case 8  : sgd_param.show_obj_each_epoch(true);
-            case 9  : sgd_param.show_obj_each_epoch(true); break;
             case 11 : ++i; gd_param.init_learning_rate(std::atof(argv[i]));
             case 12 : ++i; gd_param.init_learning_rate(std::atof(argv[i])); break;
             case 14 : ++i; gd_param.learning_rate_1st_try(std::atof(argv[i]));
