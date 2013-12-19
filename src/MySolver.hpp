@@ -104,15 +104,15 @@ protected:
 
     // Inherited functions
     virtual COMP_T    compute_learning_rate(COMP_T eta0, N_DAT_T t);
-    virtual MySolver& train_iteration(COMP_T*   data,
-                                      DAT_DIM_T d,
-                                      N_DAT_T   n,
-                                      SUPV_T*   y);
-    virtual MySolver& train_iteration(COMP_T*   data,
-                                      DAT_DIM_T d,
-                                      N_DAT_T*  x,
-                                      N_DAT_T   n,
-                                      SUPV_T*   y);
+    virtual MySolver& train_batch(COMP_T*   data,
+                                  DAT_DIM_T d,
+                                  N_DAT_T   n,
+                                  SUPV_T*   y);
+    virtual MySolver& train_batch(COMP_T*   data,
+                                  DAT_DIM_T d,
+                                  N_DAT_T*  x,
+                                  N_DAT_T   n,
+                                  SUPV_T*   y);
     virtual COMP_T    compute_obj(COMP_T*   data,
                                   DAT_DIM_T d,
                                   N_DAT_T   n,
@@ -127,11 +127,6 @@ protected:
     /// 
     /// @return     1 if positive, 0 if negative.
     virtual SUPV_T    test_one(COMP_T* dat_i, DAT_DIM_T d) const;
-    virtual MySolver& train_one(COMP_T*   data,
-                                DAT_DIM_T d,
-                                N_DAT_T   i,
-                                N_DAT_T   n,
-                                SUPV_T*   y);
 
 private:
     /// Parameters of the training process
@@ -152,11 +147,11 @@ private:
     COMP_T** p_margin;
     COMP_T*  term2;
 
-    MySolver& inititalize(DAT_DIM_T d,
-                          SUPV_T    n_label,
-                          N_DAT_T   n_sample,
-                          N_DAT_T* x_pos, N_DAT_T& n_x_pos,
-                          N_DAT_T* x_neg, N_DAT_T& n_x_neg);
+    MySolver& initialize(DAT_DIM_T d,
+                         SUPV_T    n_label,
+                         N_DAT_T   n_sample,
+                         N_DAT_T* x_pos, N_DAT_T& n_x_pos,
+                         N_DAT_T* x_neg, N_DAT_T& n_x_neg);
 
     COMP_T compute_score(COMP_T* dat_i, DAT_DIM_T d) const;
     COMP_T compute_norm(DAT_DIM_T d) const;

@@ -22,7 +22,7 @@ function varargout = toy_data_generator(varargin)
 
 % Edit the above text to modify the response to help toy_data_generator
 
-% Last Modified by GUIDE v2.5 16-Oct-2013 17:19:22
+% Last Modified by GUIDE v2.5 19-Dec-2013 19:15:31
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -78,19 +78,107 @@ function cordinate_ButtonDownFcn(hObject, eventdata, handles)
 % hObject    handle to cordinate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-if ~strcmp(get(handles.generator, 'UserData'), 'data')
-    return;
+if strcmp(get(handles.generator, 'UserData'), 'data')
+    labelrgb = get(hObject, 'UserData');
+    if isempty(labelrgb) || isempty(labelrgb{1})
+        return;
+    end
+    label = labelrgb{1};
+    color = labelrgb{2};
+    cp = get(hObject, 'CurrentPoint');
+    x = cp(1, 1); y = cp(1, 2);
+    line('XData', x, 'YData', y, 'UserData', label, ...
+        'Marker', '.', 'MarkerSize', 24, 'MarkerEdgeColor', color);
+elseif strcmp(get(handles.generator, 'UserData'), 'model_tree')
+    data = get(handles.read_model_tree, 'UserData');
+    if isempty(data)
+        return;
+    end
+    lines = data{1};
+    start = data{2};
+    nary = data{3};
+    h_last = data{4};
+    if ~isempty(h_last)
+        delete(h_last);
+        if start > size(lines, 2) - nary + 1
+            set(handles.read_model_tree, 'UserData', {});
+            set(handles.generator, 'UserData', 'data');
+            return;
+        end
+    end
+    h_last = zeros(nary + 1, 1);
+    [X, Y] = meshgrid(0:0.01:1, 0:0.01:1);
+    X = reshape(X, [], 1);
+    Y = reshape(Y, [], 1);
+    scores = zeros(size(X, 1), nary);
+    for i = start : start + nary - 1
+        fprintf('hyperplane: %g * x + %g * y + %g = 0\n', ...
+            lines(:, i));
+        w = lines(1:2, i);
+        b = lines(3, i);
+        if w(1) > w(2)
+            y = 0 : 1;
+            x = ( - b - w(2) .* y) ./ w(1);
+        else
+            x = 0 : 1;
+            y = ( - b - w(1) .* x) ./ w(2);
+        end
+        fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
+        h_last(i - start + 1) = line('XData', x, 'YData', y);
+        scores(:, i - start + 1) = sum(bsxfun(@times, [X, Y], w'), 2) + b;
+    end
+    [~, label] = max(scores, [], 2);
+    h_last(nary + 1) = scatter(X, Y, 24, label);
+    start = start + nary;
+    set(handles.read_model_tree, 'UserData', {lines, start, nary, h_last});
+elseif strcmp(get(handles.generator, 'UserData'), 'model')
+    data = get(handles.read_model, 'UserData');
+    W = data{1};
+    i = data{2};
+    h_line = data{3};
+    intv = str2double(get(handles.edit_intv, 'String'));
+    if intv > 0
+        for h = i : size(W, 1)
+            fprintf('hyperplane: %g * x + %g * y + %g = 0\n', W(h, 1:3));
+            w1 = W(h, 1); w2 = W(h, 2); b = W(h, 3);
+            if w1 ~= 0 && w2 / w1 > -1 && w2 / w1 < 1
+                y = 0 : 1;
+                x = ( - b - w2 .* y) ./ w1;
+            else
+                x = 0 : 1;
+                y = ( - b - w1 .* x) ./ w2;
+            end
+            fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
+            new_h_line = line(x, y);
+            delete(h_line);
+            pause(intv / 1000);
+            h_line = new_h_line;
+        end
+        i = size(W, 1);
+        set(handles.edit_intv, 'String', '0');
+    else
+        if i > size(W, 1)
+            set(handles.generator, 'UserData', 'data');
+            delete(h_line);
+            set(handles.edit_intv, 'String', '1');
+            return;
+        end
+        fprintf('hyperplane: %g * x + %g * y + %g = 0\n', W(i, 1:3));
+        w1 = W(i, 1); w2 = W(i, 2); b = W(i, 3);
+        if w1 ~= 0 && w2 / w1 > -1 && w2 / w1 < 1
+            y = 0 : 1;
+            x = ( - b - w2 .* y) ./ w1;
+        else
+            x = 0 : 1;
+            y = ( - b - w1 .* x) ./ w2;
+        end
+        fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
+        new_h_line = line(x, y);
+        delete(h_line);
+    end
+    set(handles.read_model, 'UserData', {W, i+1, new_h_line});
 end
-labelrgb = get(hObject, 'UserData');
-if isempty(labelrgb) || isempty(labelrgb{1})
-    return;
-end
-label = labelrgb{1};
-color = labelrgb{2};
-cp = get(hObject, 'CurrentPoint');
-x = cp(1, 1); y = cp(1, 2);
-line('XData', x, 'YData', y, 'UserData', label, ...
-    'Marker', '.', 'MarkerSize', 24, 'MarkerEdgeColor', color);
+    
 
 
 
@@ -314,31 +402,21 @@ function read_model_Callback(hObject, eventdata, handles)
 if path == 0
     return;
 end
-file = fopen([path, filename], 'r');
-if file == -1
-    return;
-end
 set(handles.cordinate, 'XLimMode', 'auto', 'YLimMode', 'auto');
-h_line = [];
 W = dlmread([path, filename]);
-fclose(file);
-for i = 1 : size(W, 1)
-    fprintf('hyperplane: %g * x + %g * y + %g = 0\n', W(i, 1:3));
-    w1 = W(i, 1); w2 = W(i, 2); b = W(i, 3);
-    if w1 ~= 0 && w2 / w1 > -1 && w2 / w1 < 1
-        y = 0 : 1;
-        x = ( - b - w2 .* y) ./ w1;
-    else
-        x = 0 : 1;
-        y = ( - b - w1 .* x) ./ w2;
-    end
-    fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
-    if h_line
-        waitforbuttonpress;
-        delete(h_line);
-    end
-    h_line = line(x, y);
+fprintf('hyperplane: %g * x + %g * y + %g = 0\n', W(1, 1:3));
+w1 = W(1, 1); w2 = W(1, 2); b = W(1, 3);
+if w1 ~= 0 && w2 / w1 > -1 && w2 / w1 < 1
+    y = 0 : 1;
+    x = ( - b - w2 .* y) ./ w1;
+else
+    x = 0 : 1;
+    y = ( - b - w1 .* x) ./ w2;
 end
+fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
+h_line = line(x, y);
+set(hObject, 'UserData', {W, 2, h_line});
+set(handles.generator, 'UserData', 'model');
 
 
 % --- Executes on button press in toggle_zoom.
@@ -445,47 +523,26 @@ function generator_ButtonDownFcn(hObject, eventdata, handles)
 % hObject    handle to generator (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-if ~strcmp(get(handles.generator, 'UserData'), 'model_tree')
-    return;
+
+
+
+function edit_intv_Callback(hObject, eventdata, handles)
+% hObject    handle to edit_intv (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit_intv as text
+%        str2double(get(hObject,'String')) returns contents of edit_intv as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit_intv_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit_intv (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
 end
-data = get(handles.read_model_tree, 'UserData');
-if isempty(data)
-    return;
-end
-lines = data{1};
-start = data{2};
-nary = data{3};
-h_last = data{4};
-if ~isempty(h_last)
-    delete(h_last);
-    if start > size(lines, 2) - nary + 1
-        set(handles.read_model_tree, 'UserData', {});
-        set(handles.generator, 'UserData', 'data');
-        return;
-    end
-end
-h_last = zeros(nary + 1, 1);
-[X, Y] = meshgrid(0:0.01:1, 0:0.01:1);
-X = reshape(X, [], 1);
-Y = reshape(Y, [], 1);
-scores = zeros(size(X, 1), nary);
-for i = start : start + nary - 1
-    fprintf('hyperplane: %g * x + %g * y + %g = 0\n', ...
-        lines(:, i));
-    w = lines(1:2, i);
-    b = lines(3, i);
-    if w(1) > w(2)
-        y = 0 : 1;
-        x = ( - b - w(2) .* y) ./ w(1);
-    else
-        x = 0 : 1;
-        y = ( - b - w(1) .* x) ./ w(2);
-    end
-    fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
-    h_last(i - start + 1) = line('XData', x, 'YData', y);
-    scores(:, i - start + 1) = sum(bsxfun(@times, [X, Y], w'), 2) + b;
-end
-[~, label] = max(scores, [], 2);
-h_last(nary + 1) = scatter(X, Y, 24, label);
-start = start + nary;
-set(handles.read_model_tree, 'UserData', {lines, start, nary, h_last});

@@ -26,6 +26,8 @@ public:
   Histogram(_VALUE* _array, _INDEX _length);
   ~Histogram();
 
+  Histogram& operator=(Histogram& some);
+
   /// Insert or replace the histogram inside the class
   Histogram& insert(_VALUE* _array, _INDEX _length);
   /// Make a histogram of length "_bin" by counting the number of times that 
@@ -60,12 +62,8 @@ Histogram<_INDEX, _VALUE>::Histogram(Histogram& some):
                            alloc(false),
                            use_map(some.use_map),
                            length_(some.length_) {
-    if (use_map) {
-        hist.map = some.hist.map;
-    }
-    else {
-        hist.array = some.hist.array;
-    }
+    if (use_map) hist.map = some.hist.map;
+    else hist.array = some.hist.array;
 }
 
 template<typename _INDEX, typename _VALUE> inline 
@@ -80,6 +78,21 @@ Histogram<_INDEX, _VALUE>::Histogram(_VALUE* _array, _INDEX _length):
 template<typename _INDEX, typename _VALUE> inline 
 Histogram<_INDEX, _VALUE>::~Histogram() {
     clear();
+}
+
+template<typename _INDEX, typename _VALUE> inline 
+Histogram<_INDEX, _VALUE>& Histogram<_INDEX, _VALUE>::
+operator=(Histogram& some) {
+    if (use_map == some.use_map) {
+        if ((!use_map && hist.array == some.hist.array)
+            || (use_map && hist.map == some.hist.map)) return *this;
+    }
+    clear();
+    use_map = some.use_map;
+    length_ = some.length_;
+    if (use_map) hist.map = some.hist.map;
+    else hist.array = some.hist.array;
+    return *this;
 }
 
 template<typename _INDEX, typename _VALUE>
@@ -152,12 +165,11 @@ clear() {
     if (alloc) {
         if (use_map) delete hist.map;
         else delete[] hist.array;
+        alloc = false;
     }
-    else {
-        hist.array = NULL;
-    }
-    use_map = false;
-    length_ = 0;
+    use_map    = false;
+    length_    = 0;
+    hist.array = NULL;
     return *this;
 }
 

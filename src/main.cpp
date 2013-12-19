@@ -31,8 +31,8 @@ int main(int argc, const char** argv)
     SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam sgd_param;
     MySolver::MyParam my_param;
 
-    // std::ofstream file("log.txt");
-    // gd_param.ostream_of_training_process(file);
+    std::ofstream file("data/log.txt");
+    gd_param.ostream_of_training_process(file);
     sgd_param.show_obj_each_epoch(true);
     my_param.verbosity(3);
     my_param.show_p_each_iter(true);
@@ -64,7 +64,7 @@ int main(int argc, const char** argv)
 
     std::cout << solver << std::endl;
 
-    // file.close();
+    file.close();
     delete[] X;
     delete[] Y;
     delete[] x_pos;

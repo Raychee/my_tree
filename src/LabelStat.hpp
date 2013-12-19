@@ -125,6 +125,7 @@ template<typename _SUPV_T, typename _N_DAT_T>
 LabelStat<_SUPV_T, _N_DAT_T>::LabelStat(LabelStat& some):
                               alloc(false),
                               n_label(some.n_label),
+                              n_sample(some.n_sample),
                               label_(some.label_),
                               n_x_of_label(some.n_x_of_label),
                               x_of_label(some.x_of_label),
@@ -141,11 +142,12 @@ LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
 operator=(LabelStat& some) {
     if (x_of_label == some.x_of_label) return *this;
     clear();
-    n_label = some.n_label;
-    n_sample = some.n_sample;
-    label_ = some.label_;
+    n_label      = some.n_label;
+    n_sample     = some.n_sample;
+    label_       = some.label_;
     n_x_of_label = some.n_x_of_label;
-    x_of_label = some.x_of_label;
+    x_of_label   = some.x_of_label;
+    i_label      = some.i_label;
     return *this;
 }
 
@@ -329,8 +331,8 @@ rand_index(_N_DAT_T* x, _N_DAT_T n) {
             max_n_x_of_label = n_subsample;
         rand_index(i, n_subsample);
     }
-    float* step_of_label = new float[n_label];
-    float* level_of_label = new float[n_label];
+    float*    step_of_label    = new float[n_label];
+    float*    level_of_label   = new float[n_label];
     _N_DAT_T* x_of_label_count = new _N_DAT_T[n_label];
     std::memset(x_of_label_count, 0, n_label * sizeof(_N_DAT_T));
     for (_SUPV_T i = 0; i < n_label; ++i) level_of_label[i] = 0;

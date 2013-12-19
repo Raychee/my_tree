@@ -1,13 +1,13 @@
 include ../Makefile.inc
 
-LIBS   = -L../lib
+LIBS   = -L../lib -lc++
 OBJ    = main.o MySolver.o
 TARGET = main
 
 ifeq ($(OS), LINUX)
 LFLAGS += -Wl,-rpath,'$$ORIGIN/../lib'
 else
-CFLAGS += -mmacosx-version-min=10.7
+CFLAGS += -mmacosx-version-min=10.7 -stdlib=libc++
 LFLAGS += -Wl,-rpath,@executable_path/../lib
 endif
 
@@ -26,7 +26,7 @@ main.o: main.cpp MySolver.hpp my_typedefs.h
 # MyTree.o: MyTree.cpp MyTree.h Tree.h
 # 	$(CC) $(CFLAGS) -c $< -o $@
 
-MySolver.o: MySolver.cpp MySolver.hpp SGD.hpp LabelStat.hpp my_typedefs.h
+MySolver.o: MySolver.cpp MySolver.hpp SGD.hpp LabelStat.hpp Histogram.hpp my_typedefs.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: test

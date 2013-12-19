@@ -1,13 +1,40 @@
-set args data/data6.txt
-b main
+del     disp
+
+set     args data/data6.txt
+b       MySolver.solve
 r
+del
 
-b MySolver.solve
-c
+set     gd_param->v                     = 2
+set     gd_param->eta0                  = 0
+set     gd_param->err                   = 0
+set     gd_param->eta0_try_sample_rate  = 1
+# set     gd_param->out_training_proc     = 0
 
-set gd_param->v = 2
-set sgd_param->show_obj_each_epoch_ = true
-set sgd_param->n_epoch = 100
+set     sgd_param->s_batch              = 25
+set     sgd_param->n_epoch              = 50
+set     sgd_param->show_obj_each_epoch_ = true
 
-set my_param->n_iter = 100
-set my_param->lambda = 1e-4
+set     my_param->n_iter = 100
+set     my_param->lambda = 0.3
+
+adv     MySolver::update_p
+set     (w[0]) = 1
+set     (b)    = -0.5
+finish
+
+disp    /6gf this->p
+disp    this->b
+disp    /2gf this->w
+
+return
+
+x       /2gf this->w
+p       this->b
+x       /325dw margin_x
+x       /6gf p_margin[0]
+x       /6gf p_margin[1]
+x       /6gf p_margin[2]
+x       /6gf this->p
+
+adv     MySolver::train
