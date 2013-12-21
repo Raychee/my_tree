@@ -83,11 +83,11 @@ Histogram<_INDEX, _VALUE>::~Histogram() {
 template<typename _INDEX, typename _VALUE> inline 
 Histogram<_INDEX, _VALUE>& Histogram<_INDEX, _VALUE>::
 operator=(Histogram& some) {
-    if (use_map == some.use_map) {
-        if ((!use_map && hist.array == some.hist.array)
-            || (use_map && hist.map == some.hist.map)) return *this;
+    if (alloc && ((use_map != some.use_map) || 
+           (!use_map && hist.array != some.hist.array) || 
+           (use_map && hist.map != some.hist.map))) {
+        clear();
     }
-    clear();
     use_map = some.use_map;
     length_ = some.length_;
     if (use_map) hist.map = some.hist.map;

@@ -102,13 +102,14 @@ public:
        char         _verbosity            = 1,
        _COMP_T      _eta0                 = 0,
        unsigned int _n_iter               = 200,
-       _COMP_T      _err                  = 1e-4,
+       _COMP_T      _err                  = 1e-8,
        float        _eta0_try_sample_rate = 0.3,
        _COMP_T      _eta0_try_1st         = 0.1,
        _COMP_T      _eta0_try_factor      = 3,
        bool         _show_obj_each_iter   = false);
     GD(GDParam& _gd_param);
     GD(GD& some);
+    GD& operator=(GD& some);
     virtual ~GD();
 
     /// Feed the training data into the solver.
@@ -151,9 +152,8 @@ public:
     test(_COMP_T* _data, _N_DAT_T _n, _SUPV_T* _y,
          _N_DAT_T* _x = NULL, _N_DAT_T _s_x = 0);
 
-    /// Compute the object function (e.g. sum of empirical losses plus a 
-    /// regularizing term) given the current parameters and data.
-    _COMP_T compute_obj();
+    /// Test one data sample.
+    virtual _SUPV_T test_one(_COMP_T* dat_i, _DAT_DIM_T d) const = 0;
 
     /// Output the SGD solver to a standard ostream.
     virtual GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
@@ -164,18 +164,17 @@ public:
     ostream_param(std::ostream& out) = 0;
 
 protected:
-    _COMP_T*   data;       ///< data buffer
-    _N_DAT_T   n;          ///< total number of samples in the buffer
-    _SUPV_T*   y;          ///< labels
-    _N_DAT_T*  x;          ///< index array indicating a subset of the whole data
+    _COMP_T*   data;     ///< data buffer (external)
+    _N_DAT_T   n;        ///< total number of samples in the buffer
+    _SUPV_T*   y;        ///< labels (external)
     
     // buffer variable for efficient training
     LabelStat<_SUPV_T, _N_DAT_T> stat;
 
-    GDParam*   gd_param;
+    GDParam*   gd_param; ///< gradient descent parameters (external)
     // temporary parameters during learning
-    _N_DAT_T   t;            ///< current pass (number of data samples passed)
-    _COMP_T    eta;          ///< current learning rate
+    _N_DAT_T   t;        ///< current pass (number of data samples passed)
+    _COMP_T    eta;      ///< current learning rate
 
     /// Determine the initial learning rate eta0 automatically according to the 
     /// given data set.
@@ -210,9 +209,6 @@ protected:
                                 _N_DAT_T*  _x,
                                 _N_DAT_T   _n,
                                 _SUPV_T*   _y) = 0;
-
-    /// Test one data sample.
-    virtual _SUPV_T test_one(_COMP_T* dat_i, _DAT_DIM_T d) const = 0;
 
 private:
     /// Mark whether the param structure that "gd_param" points to is allocated 
@@ -267,7 +263,7 @@ public:
         _N_DAT_T     _s_batch              = 1,
         unsigned int _n_epoch              = 200,
         unsigned int _n_iter               = 200,
-        _COMP_T      _err                  = 1e-8,
+        _COMP_T      _err                  = 0,
         float        _eta0_try_sample_rate = 0.3,
         _COMP_T      _eta0_try_1st         = 0.1,
         _COMP_T      _eta0_try_factor      = 3,
@@ -294,7 +290,7 @@ public:
     ostream_this(std::ostream& out);
 
 protected:
-    SGDParam*   sgd_param;        ///< All the necessary parameters
+    SGDParam*   sgd_param;        ///< sgd parameters (external)
 
     /// Train the parameters "param" with "m" data samples in "dat" whose indexes
     /// are specified by "dat_idx". 
@@ -392,7 +388,6 @@ GD(_DAT_DIM_T   _dimension,
   :data(NULL),
    n(0),
    y(NULL),
-   x(NULL),
    t(0),
    eta(_eta0),
    alloc_gd_param(true) {
@@ -416,7 +411,6 @@ GD(GDParam& _gd_param)
   :data(NULL),
    n(0),
    y(NULL),
-   x(NULL),
    gd_param(&_gd_param),
    t(0),
    alloc_gd_param(false) {
@@ -432,12 +426,32 @@ GD(GD& some)
   :data(some.data),
    n(some.n),
    y(some.y),
-   x(some.x),
    stat(some.stat),
    gd_param(some.gd_param),
    t(some.t),
    eta(some.eta),
    alloc_gd_param(false) {
+}
+
+template <typename _COMP_T,
+          typename _SUPV_T,
+          typename _DAT_DIM_T,
+          typename _N_DAT_T>
+GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
+GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
+operator=(GD& some) {
+    if (alloc_gd_param && gd_param != some.gd_param) {
+        delete gd_param;
+        alloc_gd_param = false;
+    }
+    data           = some.data;
+    n              = some.n;
+    y              = some.y;
+    stat           = some.stat;
+    gd_param       = some.gd_param;
+    t              = some.t;
+    eta            = some.eta;
+    return *this;
 }
 
 template <typename _COMP_T,
@@ -512,6 +526,7 @@ train() {
     _COMP_T      err                = gd_param->accuracy();
     bool         show_obj_each_iter = gd_param->show_obj_each_iteration();
     _N_DAT_T     n_sample           = stat.num_of_samples();
+    _N_DAT_T*    x                  = NULL;
     if (!dim) {
         std::cerr << "WARNING: GD: Dimensionality has not been specified. "
                   << "Training process is skipped." << std::endl;
@@ -527,6 +542,10 @@ train() {
     if (!eta0) try_learning_rate();
     _COMP_T obj0 = std::numeric_limits<_COMP_T>::max();
     _COMP_T obj1;
+    if (n > n_sample) {
+        x = new _N_DAT_T[n_sample];
+        stat.index_of_samples(x);
+    }
     if (verbosity >= 1) {
         std::cout << "Training ... ";
         if (verbosity > 1) std::cout << std::endl;
@@ -573,6 +592,7 @@ train() {
             std::cout << "    Max number of iterations has been reached.";
         std::cout << std::endl;
     }
+    delete[] x;
     return *this;
 }
 
@@ -619,24 +639,6 @@ test(_COMP_T* _data, _N_DAT_T _n, _SUPV_T* _y, _N_DAT_T* _x, _N_DAT_T _s_x) {
     }
     if (verbosity == 1) std::cout << "Done.\n";
     if (verbosity >= 1) std::cout << "GD Testing: finished." << std::endl;
-}
-
-template <typename _COMP_T,
-          typename _SUPV_T,
-          typename _DAT_DIM_T,
-          typename _N_DAT_T>
-inline _COMP_T
-GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-compute_obj() {
-    if (x) return compute_obj(data,
-                              gd_param->dimension(),
-                              x,
-                              stat->num_of_samples(),
-                              y);
-    else return compute_obj(data,
-                            gd_param->dimension(),
-                            n,
-                            y);
 }
 
 template <typename _COMP_T,
@@ -856,13 +858,7 @@ train() {
     }
     if (!this->gd_param->init_learning_rate()) this->try_learning_rate();
     this->t = 0;
-    if (this->x) rand_x = this->x;
-    else { 
-        rand_x = new _N_DAT_T[n_sample];
-        for (_N_DAT_T i = 0; i < n_sample; ++i) {
-            rand_x[i] = i;
-        }
-    }
+    rand_x = new _N_DAT_T[n_sample];
     _COMP_T obj0 = std::numeric_limits<_COMP_T>::max();
     _COMP_T obj1;
     unsigned int i;
@@ -874,7 +870,7 @@ train() {
     for (i = 0; i < n_epoch; ++i) {
         if (verbosity >= 3)
             std::cout << "    Shuffling the data set... " << std::flush;
-        rand_index(rand_x, n_sample);
+        this->stat.rand_index(rand_x);
         if (verbosity >= 3) std::cout << "Done." << std::endl; 
         if (verbosity >= 2) {
             std::cout << "    Epoch " << i + 1  << " ... ";
@@ -911,7 +907,7 @@ train() {
             std::cout << "    Max number of epoches has been reached.";
         std::cout << std::endl;
     }
-    if (rand_x != this->x) delete[] rand_x;
+    delete[] rand_x;
     return *this;
 }
 

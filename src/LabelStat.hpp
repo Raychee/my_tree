@@ -6,6 +6,7 @@
 # include <cstring>
 # include <cstdlib>
 # include <ctime>
+# include <cmath>
 
 # include "Histogram.hpp"
 
@@ -30,9 +31,9 @@ public:
     LabelStat();
     LabelStat(_SUPV_T*  y, _N_DAT_T n, _N_DAT_T* x = NULL);
     LabelStat(LabelStat& some);
+    LabelStat& operator=(LabelStat& some);
     ~LabelStat();
 
-    LabelStat& operator=(LabelStat& some);
     /// The main method of the class.
     /// 
     /// Calculates all the information mentioned.
@@ -75,6 +76,7 @@ public:
     ///                 Otherwise only "n" indexes are randomly chosen out of the 
     ///                 set and stored in "x".
     LabelStat& rand_index(_N_DAT_T* x, _N_DAT_T n = 0);
+    double     entropy();
 
     LabelStat& ostream_this(std::ostream& out);
 
@@ -140,8 +142,7 @@ LabelStat<_SUPV_T, _N_DAT_T>::~LabelStat() {
 template<typename _SUPV_T, typename _N_DAT_T> inline
 LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
 operator=(LabelStat& some) {
-    if (x_of_label == some.x_of_label) return *this;
-    clear();
+    if (alloc && label_ != some.label_) clear();
     n_label      = some.n_label;
     n_sample     = some.n_sample;
     label_       = some.label_;
@@ -353,6 +354,18 @@ rand_index(_N_DAT_T* x, _N_DAT_T n) {
     delete[] x_of_label_count;
     delete[] n_subsample_of_label;
     return *this;
+}
+
+template<typename _SUPV_T, typename _N_DAT_T>
+double LabelStat<_SUPV_T, _N_DAT_T>::
+entropy() {
+    if (n_label <= 1) return 0;
+    double  ent = 0;
+    for (_SUPV_T i = 0; i < n_label; ++i) {
+        double p = (double)n_x_of_label[i] / n_sample;
+        ent += p * std::log2(p);
+    }
+    return -ent;
 }
 
 

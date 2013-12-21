@@ -11,7 +11,6 @@ MySolver::MySolver(GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   _gd_param,
           b(0),
           p(NULL),
           alloc_p(false),
-          margin_x(NULL),
           p_margin(NULL),
           term2(NULL) {
 }
@@ -23,7 +22,6 @@ MySolver::MySolver(MySolver& some):
           b(some.b),
           p(some.p),
           alloc_p(false),
-          margin_x(some.margin_x),
           p_margin(some.p_margin),
           term2(some.term2) {
     if (some.w) {
@@ -84,11 +82,10 @@ MySolver& MySolver::solve(N_DAT_T* x_pos, N_DAT_T& n_x_pos,
         p = new COMP_T[s_labelset];
         alloc_p = true;
     }
-    margin_x = new SUPV_T[n];
     p_margin = new COMP_T*[3];
-    p_margin[0] = p;
-    p_margin[1] = new COMP_T[s_labelset];
-    p_margin[2] = new COMP_T[s_labelset];
+    p_margin_neg = p;
+    p_margin_mid = new COMP_T[s_labelset];
+    p_margin_pos = new COMP_T[s_labelset];
     term2 = new COMP_T[dim];
     if (my_v >= 1) {
         std::cout << "MySolver Training: \n    Data: " << n_sample << " samples, "
@@ -126,7 +123,7 @@ MySolver& MySolver::solve(N_DAT_T* x_pos, N_DAT_T& n_x_pos,
         else std::cout.flush();
     }
     t = 0;
-    unsigned int i;
+    unsigned int i, j;
     for (i = 0; i < n_iter; ++i) {
         if (my_v >= 2) {
             std::cout << "    Iteration " << i + 1 << " ... ";
@@ -169,14 +166,14 @@ MySolver& MySolver::solve(N_DAT_T* x_pos, N_DAT_T& n_x_pos,
         if (my_v > 1 || gd_v >= 1) std::cout << std::endl;
         else std::cout.flush();
     }
-    for (i = 0; i < n_iter_fine; ++i) {
+    for (j = 0; j < n_iter_fine; ++j) {
         p_diff = 0;
         if (my_v >= 3)
             std::cout << "    Shuffling the data set... " << std::flush;
         rand_index(rand_x, n_sample);
         if (my_v >= 3) std::cout << "Done." << std::endl; 
         if (my_v >= 2) {
-            std::cout << "    Iteration " << i + 1 << " ... ";
+            std::cout << "    Iteration " << j + 1 << " ... ";
             if (my_v >= 3) std::cout << "\n        Updating [w, b] ... ";
             if (gd_v >= 1) std::cout << std::endl;
             else std::cout.flush();
@@ -210,19 +207,21 @@ MySolver& MySolver::solve(N_DAT_T* x_pos, N_DAT_T& n_x_pos,
         }
         if (err > 0 && p_diff < err) break;
     }
-    delete[] margin_x;
-    delete[] p_margin[1];
-    delete[] p_margin[2];
+    delete[] p_margin_mid;
+    delete[] p_margin_pos;
     delete[] p_margin;
     delete[] term2;
     if (my_v >= 1) {
         if (my_v == 1 && gd_v < 1) std::cout << "Done.\n";
         std::cout << "MySolver Training: finished. \n";
-        if (t < n_iter + n_iter_fine)
-            std::cout << "    Training stopped at iteration " << i + n_iter + 1 
+        if (i < n_iter)
+            std::cout << "    Training stopped at iteration " << i + 1 
                       << " with convergence.";
-        else
-            std::cout << "    Max number of iterations has been reached.";
+        else if (j < n_iter_fine) {
+            std::cout << "    Training stopped during fine-tuning iteration "
+                      << j + 1 << " with convergence.";
+        }
+        else std::cout << "    Max number of iterations has been reached.";
         std::cout << std::endl;
     }
     return *this;
@@ -247,17 +246,14 @@ COMP_T MySolver::update_p(DAT_DIM_T d,
                 x_pos[n_x_pos++] = x_i;
             }
             else { x_neg[n_x_neg++] = x_i;}
-            // if (score >= 1) { margin_x[x_i] = 2; }
-            // else if (score <= -1) { margin_x[x_i] = 0; }
-            // else { margin_x[x_i] = 1; }
         }
         COMP_T p_new = (COMP_T)n_x_label_pos / n_x_label;
         COMP_T p_diff = p[i] - p_new;
         if (p_diff < 0) p_diff = -p_diff;
         diff_p += p_diff;
         p[i] = p_new;
-        p_margin[1][i] = 2 * p[i] - 1;
-        p_margin[2][i] = p[i] - 1;
+        p_margin_mid[i] = 2 * p[i] - 1;
+        p_margin_pos[i] = p[i] - 1;
     }
     return diff_p;
 }
@@ -274,7 +270,11 @@ MySolver& MySolver::train_batch(COMP_T*   data,
     COMP_T  term3   = eta / n;
     COMP_T* dat_i   = data;
     for (N_DAT_T i = 0; i < n; ++i, dat_i += d) {
-        COMP_T p_i  = p_margin[margin_x[i]][stat.index_of_label(y[i])];
+        COMP_T  score = compute_score(dat_i, d);
+        COMP_T  p_i;
+        if (score < -1) p_i = p_margin_neg[stat.index_of_label(y[i])];
+        else if (score > 1) p_i = p_margin_pos[stat.index_of_label(y[i])];
+        else p_i = p_margin_mid[stat.index_of_label(y[i])];
         for (DAT_DIM_T i = 0; i < d; ++i) {
             term2[i] += p_i * dat_i[i];
         }
@@ -302,10 +302,9 @@ MySolver& MySolver::train_batch(COMP_T*   data,
         COMP_T* dat_i = data + d * x_i;
         COMP_T  score = compute_score(dat_i, d);
         COMP_T  p_i;
-        if (score < -1) p_i = p_margin[0][stat.index_of_label(y[x_i])];
-        else if (score > 1) p_i = p_margin[2][stat.index_of_label(y[x_i])];
-        else p_i = p_margin[1][stat.index_of_label(y[x_i])];
-        // COMP_T  p_i   = p_margin[margin_x[x_i]][stat.index_of_label(y[x_i])];
+        if (score < -1) p_i = p_margin_neg[stat.index_of_label(y[x_i])];
+        else if (score > 1) p_i = p_margin_pos[stat.index_of_label(y[x_i])];
+        else p_i = p_margin_mid[stat.index_of_label(y[x_i])];
         for (DAT_DIM_T i = 0; i < d; ++i) {
             term2[i] += p_i * dat_i[i];
         }
@@ -385,6 +384,8 @@ MySolver& MySolver::initialize(DAT_DIM_T d,
         COMP_T temp   = p[temp_i];
         p[temp_i] = p[i];
         p[i] = temp;
+        p_margin_mid[i] = 2 * p[i] - 1;
+        p_margin_pos[i] = p[i] - 1;
     }
     // delete[] x;
     return *this;

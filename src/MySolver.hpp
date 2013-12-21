@@ -81,24 +81,21 @@ public:
     /// 
     /// According to the training data "dat", "n", and "y", train the parameters 
     /// "w" and "b".
-    /// @param[in]  dat The matrix of the input data.
-    /// @param[in]  n   The number of samples.
-    /// @param[in]  y   The labels of every sample.
-    /// @param[out] x0  A buffer of size "n" that stores the indexes of samples 
-    ///                 which result in w'x+b>0.
-    /// @param[out] x1  A buffer of size "n" that stores the indexes of samples 
-    ///                 which result in w'x+b<0.
-    /// @param[out] d0  A buffer which has the equal size of the label set that 
-    ///                 stores number of samples of each label that result in 
-    ///                 w'x+b>0.
-    /// @param[out] d0  A buffer which has the equal size of the label set that 
-    ///                 stores number of samples of each label that result in 
-    ///                 w'x+b<0.
     MySolver&         solve(N_DAT_T* x_pos, N_DAT_T& n_x_pos,
                             N_DAT_T* x_neg, N_DAT_T& n_x_neg);
+    COMP_T            entropy();
+    N_DAT_T           num_of_samples() const { return stat.num_of_samples(); }
+    LabelStat<SUPV_T, N_DAT_T>& 
+                      distribution() { return stat; }
+
+    /// Test one sample to judge whether the sample lies in the positive side or 
+    /// negative side of the hyperplane "w'x+b=0".
+    /// 
+    /// @return     0 if positive, 1 if negative.
+    virtual SUPV_T    test_one(COMP_T* dat_i, DAT_DIM_T d) const;
 
 protected:
-    /// Update the information of p.
+    /// Update the information of "p" and internal buffer "p_margin_...".
     /// 
     /// @param[out] x_pos   An array of indexes of samples on the positive side 
     ///                     of the hyperplane.
@@ -133,29 +130,24 @@ protected:
                                   N_DAT_T*  x,
                                   N_DAT_T   n,
                                   SUPV_T*   y);
-    /// Test one sample to judge whether the sample lies in the positive side or 
-    /// negative side of the hyperplane "w'x+b=0".
-    /// 
-    /// @return     1 if positive, 0 if negative.
-    virtual SUPV_T    test_one(COMP_T* dat_i, DAT_DIM_T d) const;
+    
 
 private:
-    /// Parameters of the training process
+    /// Parameters of the training process (external)
     MyParam* my_param;
-    /// parameters of the hyperplane
+    /// parameters of the hyperplane (internal)
     COMP_T*  w;
     /// bias of the hyperplane
     COMP_T   b;
-    /// probability of each class
+    /// probability of each class (internal/external)
     COMP_T*  p;
 
-    bool     alloc_p;
+    bool     alloc_p;       ///< mark whether "p" is internal
 
-    // Buffer variables for efficient training
-    SUPV_T*  margin_x;  // An array of the same size as the WHOLE data set.
-                        // "margin_x[i]" is 0 if x_i has score < 1;
-                        // 1 if -1<score<1; 2 if score > 1.
-    COMP_T** p_margin;
+    // Buffer variables for efficient training (internal)
+    COMP_T*  p_margin_pos;
+    COMP_T*  p_margin_neg;
+    COMP_T*  p_margin_mid;
     COMP_T*  term2;
 
     MySolver& initialize(DAT_DIM_T d,
@@ -171,13 +163,16 @@ private:
     virtual MySolver* duplicate_this() { return new MySolver(*this); }
 }; // Class MySolver
 
+inline COMP_T MySolver::entropy() {
+    return (COMP_T)stat.entropy();
+}
 
 inline COMP_T MySolver::compute_learning_rate(COMP_T eta0, N_DAT_T t) {
     return eta0 / (1 + my_param->regul_coef() * eta0 * t);
 }
 
 inline SUPV_T MySolver::test_one(COMP_T* dat_i, DAT_DIM_T d) const {
-    return compute_score(dat_i, d) > 0;
+    return compute_score(dat_i, d) > 0 ? 0 : 1;
 }
 
 

@@ -29,8 +29,11 @@ main.o: main.cpp MySolver.hpp my_typedefs.h
 MySolver.o: MySolver.cpp MySolver.hpp SGD.hpp LabelStat.hpp Histogram.hpp my_typedefs.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: test
+.PHONY: test check
 
 test:
 # $(CC) $(CFLAGS) $(LFLAGS) $(LIBS) test.cpp -o ../bin/test
 	$(CC) $(CFLAGS) test.cpp -o ../bin/test
+
+check:
+	$(CC) $(CFLAGS) -fsyntax-only MyTree.cpp
