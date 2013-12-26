@@ -34,16 +34,18 @@ protected:
         TreeNode&    branches(unsigned int _n_branch);
         TreeNode&    attach_child();
         TreeNode&    attach_child(TreeNode* node);
-        unsigned int num_of_children()     const { return n_child; }
-        unsigned int num_of_branches()     const { return n_branch; }
-        TreeNode&    child(unsigned int i) const { return *child_[i]; }
-        TreeNode**   children()            const { return child_; }
-        bool         has_child()           const { return (bool)n_child; }
-        TreeNode&    parent()              const { return *parent_; }
-        bool         has_parent()          const { return (bool)parent_; }
-        _DATA&       content()             const { return *data; }
-        _DATA*       pcontent()            const { return data; }
-        unsigned int depth()               const { return depth_; }
+        unsigned int num_of_children()      const { return n_child; }
+        unsigned int num_of_branches()      const { return n_branch; }
+        TreeNode&    child(unsigned int i)  const { return *child_[i]; }
+        TreeNode*    pchild(unsigned int i) const { return child_[i]; }
+        TreeNode**   children()             const { return child_; }
+        bool         has_child()            const { return (bool)n_child; }
+        TreeNode&    parent()               const { return *parent_; }
+        TreeNode*    pparent()              const { return parent_; }
+        bool         has_parent()           const { return (bool)parent_; }
+        _DATA&       content()              const { return *data; }
+        _DATA*       pcontent()             const { return data; }
+        unsigned int depth()                const { return depth_; }
     private:
         _DATA*       data;     ///< The content of a node. (internal)
         unsigned int depth_;

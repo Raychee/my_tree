@@ -149,13 +149,23 @@ elseif strcmp(get(handles.generator, 'UserData'), 'model')
             w1 = W(h, 1); w2 = W(h, 2); b = W(h, 3);
             if w1 ~= 0 && w2 / w1 > -1 && w2 / w1 < 1
                 y = 0 : 1;
-                x = ( - b - w2 .* y) ./ w1;
+                x = (- b - w2 .* y) ./ w1;
+                y_neg_margin = 0 : 1;
+                x_neg_margin = (- 1 - b - w2 .* y_neg_margin) ./ w1;
+                y_pos_margin = 0 : 1;
+                x_pos_margin = (1 - b - w2 .* y_pos_margin) ./ w1;
             else
                 x = 0 : 1;
-                y = ( - b - w1 .* x) ./ w2;
+                y = (- b - w1 .* x) ./ w2;
+                x_neg_margin = 0 : 1;
+                y_neg_margin = (- 1 - b - w1 .* x_neg_margin) ./ w2;
+                x_pos_margin = 0 : 1;
+                y_pos_margin = (1 - b - w1 .* x_pos_margin) ./ w2;
             end
             fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
-            new_h_line = line(x, y);
+            new_h_line(1) = line(x, y);
+            new_h_line(2) = line(x_neg_margin, y_neg_margin);
+            new_h_line(3) = line(x_pos_margin, y_pos_margin);
             delete(h_line);
             pause(intv / 1000);
             h_line = new_h_line;
@@ -163,18 +173,27 @@ elseif strcmp(get(handles.generator, 'UserData'), 'model')
         i = size(W, 1);
         set(handles.edit_intv, 'String', '0');
     else
-        
         fprintf('hyperplane: %g * x + %g * y + %g = 0\n', W(i, 1:3));
         w1 = W(i, 1); w2 = W(i, 2); b = W(i, 3);
         if w1 ~= 0 && w2 / w1 > -1 && w2 / w1 < 1
             y = 0 : 1;
-            x = ( - b - w2 .* y) ./ w1;
+            x = (- b - w2 .* y) ./ w1;
+            y_neg_margin = 0 : 1;
+            x_neg_margin = (- 1 - b - w2 .* y_neg_margin) ./ w1;
+            y_pos_margin = 0 : 1;
+            x_pos_margin = (1 - b - w2 .* y_pos_margin) ./ w1;
         else
             x = 0 : 1;
-            y = ( - b - w1 .* x) ./ w2;
+            y = (- b - w1 .* x) ./ w2;
+            x_neg_margin = 0 : 1;
+            y_neg_margin = (- 1 - b - w1 .* x_neg_margin) ./ w2;
+            x_pos_margin = 0 : 1;
+            y_pos_margin = (1 - b - w1 .* x_pos_margin) ./ w2;
         end
         fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
-        new_h_line = line(x, y);
+        new_h_line(1) = line(x, y);
+        new_h_line(2) = line(x_neg_margin, y_neg_margin);
+        new_h_line(3) = line(x_pos_margin, y_pos_margin);
         delete(h_line);
     end
     set(handles.read_model, 'UserData', {W, i+1, new_h_line});
@@ -409,13 +428,23 @@ fprintf('hyperplane: %g * x + %g * y + %g = 0\n', W(1, 1:3));
 w1 = W(1, 1); w2 = W(1, 2); b = W(1, 3);
 if w1 ~= 0 && w2 / w1 > -1 && w2 / w1 < 1
     y = 0 : 1;
-    x = ( - b - w2 .* y) ./ w1;
+    x = (- b - w2 .* y) ./ w1;
+    y_neg_margin = 0 : 1;
+    x_neg_margin = (- 1 - b - w2 .* y_neg_margin) ./ w1;
+    y_pos_margin = 0 : 1;
+    x_pos_margin = (1 - b - w2 .* y_pos_margin) ./ w1;
 else
     x = 0 : 1;
-    y = ( - b - w1 .* x) ./ w2;
+    y = (- b - w1 .* x) ./ w2;
+    x_neg_margin = 0 : 1;
+    y_neg_margin = (- 1 - b - w1 .* x_neg_margin) ./ w2;
+    x_pos_margin = 0 : 1;
+    y_pos_margin = (1 - b - w1 .* x_pos_margin) ./ w2;
 end
 fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
-h_line = line(x, y);
+h_line(1) = line(x, y);
+h_line(2) = line(x_neg_margin, y_neg_margin);
+h_line(3) = line(x_pos_margin, y_pos_margin);
 set(hObject, 'UserData', {W, 2, h_line});
 set(handles.generator, 'UserData', 'model');
 

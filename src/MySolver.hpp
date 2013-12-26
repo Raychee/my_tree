@@ -15,12 +15,16 @@ public:
     public:
         MyParam(char         _v                = 1,
                 COMP_T       _lambda           = 0.5,
+                unsigned int _n_trial          = 5,
+                unsigned int _n_train          = 1,
                 unsigned int _n_iter           = 50,
                 unsigned int _n_iter_fine      = 50,
                 COMP_T       _err              = 0.01,
                 bool         _show_p_each_iter = false)
                :v(_v),
                 lambda(_lambda),
+                n_trial(_n_trial),
+                n_train(_n_train),
                 n_iter(_n_iter),
                 n_iter_fine(_n_iter_fine),
                 err(_err),
@@ -30,6 +34,10 @@ public:
         
         MyParam& verbosity(char _v) { v = _v; return *this; }
         MyParam& regul_coef(COMP_T _lambda) { lambda = _lambda; return *this; }
+        MyParam& num_of_trials(unsigned int _n_trial)
+            { n_trial = _n_trial; return *this; }
+        MyParam& num_of_trainings(unsigned int _n_train)
+            { n_train = _n_train; return *this; }
         MyParam& num_of_iterations(unsigned int _n_iter)
             { n_iter = _n_iter; return *this; }
         MyParam& num_of_fine_tuning(unsigned int _n_iter_fine)
@@ -42,6 +50,8 @@ public:
 
         char          verbosity()                   const { return v; }
         COMP_T        regul_coef()                  const { return lambda; }
+        unsigned int  num_of_trials()               const { return n_trial; }
+        unsigned int  num_of_trainings()            const { return n_train; }
         unsigned int  num_of_iterations()           const { return n_iter; }
         unsigned int  num_of_fine_tuning()          const { return n_iter_fine; }
         COMP_T        accuracy()                    const { return err; }
@@ -52,7 +62,9 @@ public:
             out << "MySolver parameters:\n"
                 << "\tVerbosity = " << (int)v << "\n"
                 << "\tRegularization coefficient = " << lambda << "\n"
-                << "\tMax number of iterations = " << n_iter << "\n"
+                << "\tNumber of initial guesses = " << n_trial << "\n"
+                << "\tNumber of trainings for each guess = " << n_train << "\n"
+                << "\tMax number of full iterations = " << n_iter << "\n"
                 << "\tStopping accuracy = " << err;
             return *this;
         }
@@ -60,6 +72,8 @@ public:
     private:
         char          v;
         COMP_T        lambda;      ///< trade-off between regularization & loss
+        unsigned int  n_trial;     ///< number of intial guesses for w & b
+        unsigned int  n_train;     ///< number of times of training
         unsigned int  n_iter;      ///< number of normal iterations
         unsigned int  n_iter_fine; ///< number of extra iterations for fine tuning
         COMP_T        err;
@@ -67,7 +81,17 @@ public:
         std::ostream* out_training_proc;
     };//class MyParam
 
-    MySolver(GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&  _gd_param,
+    MySolver(GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   _gd_param,
+             SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam& _sgd_param,
+             char         _v                = 1,
+             COMP_T       _lambda           = 0.5,
+             unsigned int _n_trial          = 5,
+             unsigned int _n_train          = 1,
+             unsigned int _n_iter           = 50,
+             unsigned int _n_iter_fine      = 50,
+             COMP_T       _err              = 0.01,
+             bool         _show_p_each_iter = false);
+    MySolver(GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   _gd_param,
              SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam& _sgd_param,
              MyParam&  _my_param);
     MySolver(MySolver& some);
@@ -81,8 +105,17 @@ public:
     /// 
     /// According to the training data "dat", "n", and "y", train the parameters 
     /// "w" and "b".
-    MySolver&         solve(N_DAT_T* x_pos, N_DAT_T& n_x_pos,
-                            N_DAT_T* x_neg, N_DAT_T& n_x_neg);
+    /// @param[out] x_pos   An array of indexes of samples on the positive side 
+    ///                     of the hyperplane.
+    /// @param[out] n_x_pos The number of samples in "x_pos".
+    /// @param[out] x_neg   An array of indexes of samples on the negative side 
+    ///                     of the hyperplane.
+    /// @param[out] n_x_neg The number of samples in "x_neg".
+    /// @warning    "x_pos" & "x_neg" should point to pre-allocated memory spaces 
+    ///             of at least the equal size of "stat.num_of_samples()".
+    MySolver&         solve(N_DAT_T* _x_pos, N_DAT_T& _n_x_pos,
+                            N_DAT_T* _x_neg, N_DAT_T& _n_x_neg);
+    MySolver&         solve();
     COMP_T            entropy();
     N_DAT_T           num_of_samples() const { return stat.num_of_samples(); }
     LabelStat<SUPV_T, N_DAT_T>& 
@@ -97,18 +130,8 @@ public:
 protected:
     /// Update the information of "p" and internal buffer "p_margin_...".
     /// 
-    /// @param[out] x_pos   An array of indexes of samples on the positive side 
-    ///                     of the hyperplane.
-    /// @param[out] n_x_pos The number of samples in "x_pos".
-    /// @param[out] x_neg   An array of indexes of samples on the negative side 
-    ///                     of the hyperplane.
-    /// @param[out] n_x_neg The number of samples in "x_neg".
-    /// @warning    "x_pos" & "x_neg" should point to pre-allocated memory spaces 
-    ///             of at least the equal size of "stat.num_of_samples()".
     /// @return     The amount of difference of "p".
-    COMP_T            update_p(DAT_DIM_T d,
-                               N_DAT_T*  x_pos, N_DAT_T& n_x_pos,
-                               N_DAT_T*  x_neg, N_DAT_T& n_x_neg);
+    COMP_T            update_p(DAT_DIM_T d, SUPV_T n_label);
 
     // Inherited functions
     virtual COMP_T    compute_learning_rate(COMP_T eta0, N_DAT_T t);
@@ -133,28 +156,40 @@ protected:
     
 
 private:
-    /// Parameters of the training process (external)
-    MyParam* my_param;
+    /// Parameters of the training process (external/internal)
+    MyParam*  my_param;
     /// parameters of the hyperplane (internal)
-    COMP_T*  w;
+    COMP_T*   w;
     /// bias of the hyperplane
-    COMP_T   b;
-    /// probability of each class (internal/external)
-    COMP_T*  p;
+    COMP_T    b;
+    /// probability of each class (internal)
+    COMP_T*   p;
 
-    bool     alloc_p;       ///< mark whether "p" is internal
+    bool      alloc_my_param;
+    // external
+    N_DAT_T*  x_pos;
+    N_DAT_T   n_x_pos;
+    N_DAT_T*  x_neg;
+    N_DAT_T   n_x_neg;
 
     // Buffer variables for efficient training (internal)
-    COMP_T*  p_margin_pos;
-    COMP_T*  p_margin_neg;
-    COMP_T*  p_margin_mid;
-    COMP_T*  term2;
+    COMP_T*   p_margin_pos;
+    COMP_T*   p_margin_mid;
+    COMP_T*&  p_margin_neg;
+    COMP_T*   term2;
 
-    MySolver& initialize(DAT_DIM_T d,
-                         SUPV_T    n_label,
-                         N_DAT_T   n_sample,
-                         N_DAT_T* x_pos, N_DAT_T& n_x_pos,
-                         N_DAT_T* x_neg, N_DAT_T& n_x_neg);
+    MySolver& full_train(unsigned int& i,
+                         unsigned int  n_iter,
+                         DAT_DIM_T     dim,
+                         N_DAT_T*      x,
+                         N_DAT_T       n_sample,
+                         SUPV_T        n_label);
+    MySolver& fine_train(unsigned int& i,
+                         unsigned int  n_iter_fine,
+                         DAT_DIM_T     dim,
+                         N_DAT_T*      x,
+                         N_DAT_T       n_sample,
+                         SUPV_T        n_label);
 
     COMP_T    compute_score(COMP_T* dat_i, DAT_DIM_T d) const;
     COMP_T    compute_norm(DAT_DIM_T d) const;

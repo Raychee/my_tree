@@ -8,7 +8,7 @@
 # include <ctime>
 # include <cmath>
 
-# include "Histogram.hpp"
+# include "Array.hpp"
 
 /// A template class which calculates the statistics of a label set.
 /// 
@@ -88,7 +88,7 @@ private:
     _SUPV_T*   label_;
     _N_DAT_T*  n_x_of_label;
     _N_DAT_T** x_of_label;
-    Histogram<_SUPV_T, _SUPV_T> i_label;
+    Array<_SUPV_T, _SUPV_T> i_label;
 };
 
 template<typename _SUPV_T, typename _N_DAT_T>
