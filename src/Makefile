@@ -1,7 +1,7 @@
 include ../Makefile.inc
 
 LIBS   = -L../lib -lc++
-OBJ    = main.o MySolver.o
+OBJ    = main.o MyTree.o MySolver.o
 TARGET = main
 
 ifeq ($(OS), LINUX)
@@ -20,11 +20,11 @@ endif
 ../bin/$(TARGET): $(OBJ)
 	$(LD) $(LFLAGS) $(LIBS) $(OBJ) -o ../bin/$(TARGET)
 
-main.o: main.cpp MySolver.hpp my_typedefs.h
+main.o: main.cpp MyTree.o my_typedefs.h
 	$(CC) $(CFLAGS) -c $< -o $@
 	
-# MyTree.o: MyTree.cpp MyTree.h Tree.h
-# 	$(CC) $(CFLAGS) -c $< -o $@
+MyTree.o: MyTree.cpp MyTree.hpp Tree.hpp my_typedefs.h MySolver.o
+	$(CC) $(CFLAGS) -c $< -o $@
 
 MySolver.o: MySolver.cpp MySolver.hpp SGD.hpp LabelStat.hpp Array.hpp my_typedefs.h
 	$(CC) $(CFLAGS) -c $< -o $@

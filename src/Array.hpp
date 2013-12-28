@@ -97,34 +97,36 @@ operator=(Array& some) {
 
 template<typename _INDEX, typename _VALUE>
 Array<_INDEX, _VALUE>& Array<_INDEX, _VALUE>::
-insert(_VALUE* _array, _INDEX  _length) {
+insert(_VALUE* _array, _INDEX _length) {
     clear();
     _INDEX n_nonzero = 0, i_nonzero;
     for (_INDEX i = 0; i < _length; ++i) {
         if (_array[i]) { n_nonzero++; i_nonzero = i; }
     }
-    use_map = _length / n_nonzero > 3;
-    if (use_map) {
-        arr.map = new std::map<_INDEX, _VALUE>;
-        typename std::map<_INDEX, _VALUE>::iterator arr_it;
-        arr_it = arr.map->insert(typename std::map<_INDEX, _VALUE>::
-                            value_type(i_nonzero, _array[i_nonzero])).first;
-        for (_INDEX i = i_nonzero - 1; i != 0; --i) {
-            if (_array[i]) {
-                arr_it = arr.map->insert(arr_it, typename std::map<_INDEX, _VALUE>::
-                                    value_type(i, _array[i]));
+    if (n_nonzero > 0) {
+        use_map = (_length / n_nonzero) > 3;
+        if (use_map) {
+            arr.map = new std::map<_INDEX, _VALUE>;
+            typename std::map<_INDEX, _VALUE>::iterator arr_it;
+            arr_it = arr.map->insert(typename std::map<_INDEX, _VALUE>::
+                                value_type(i_nonzero, _array[i_nonzero])).first;
+            for (_INDEX i = i_nonzero - 1; i != 0; --i) {
+                if (_array[i]) {
+                    arr_it = arr.map->insert(arr_it, typename std::map<_INDEX, _VALUE>::
+                                        value_type(i, _array[i]));
+                }
             }
+            if (_array[0]) {
+                arr_it = arr.map->insert(arr_it, typename std::map<_INDEX, _VALUE>::
+                                    value_type(0, _array[0]));
+            }
+            delete[] _array;
         }
-        if (_array[0]) {
-            arr_it = arr.map->insert(arr_it, typename std::map<_INDEX, _VALUE>::
-                                value_type(0, _array[0]));
+        else {
+            arr.array = _array;
         }
-        delete[] _array;
+        alloc = true;
     }
-    else {
-        arr.array = _array;
-    }
-    alloc   = true;
     length_ = _length;
     return *this;
 }
@@ -155,7 +157,11 @@ operator[](_INDEX i) {
         else return 0;
     }
     else {
-        return arr.array[i];
+        if (arr.array) {
+            if (i < length_) return arr.array[i];
+            else return 0;
+        }
+        else return 0;
     }
 }
 
@@ -167,8 +173,8 @@ clear() {
         else delete[] arr.array;
         alloc = false;
     }
-    use_map    = false;
-    length_    = 0;
+    use_map   = false;
+    length_   = 0;
     arr.array = NULL;
     return *this;
 }

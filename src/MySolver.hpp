@@ -134,16 +134,18 @@ protected:
     COMP_T            update_p(DAT_DIM_T d, SUPV_T n_label);
 
     // Inherited functions
-    virtual COMP_T    compute_learning_rate(COMP_T eta0, N_DAT_T t);
+    virtual COMP_T    compute_learning_rate(COMP_T eta0, unsigned long t);
     virtual MySolver& train_batch(COMP_T*   data,
                                   DAT_DIM_T d,
                                   N_DAT_T   n,
-                                  SUPV_T*   y);
+                                  SUPV_T*   y,
+                                  COMP_T    eta);
     virtual MySolver& train_batch(COMP_T*   data,
                                   DAT_DIM_T d,
                                   N_DAT_T*  x,
                                   N_DAT_T   n,
-                                  SUPV_T*   y);
+                                  SUPV_T*   y,
+                                  COMP_T    eta);
     virtual COMP_T    compute_obj(COMP_T*   data,
                                   DAT_DIM_T d,
                                   N_DAT_T   n,
@@ -196,13 +198,19 @@ private:
 
     // Inherited functions
     virtual MySolver* duplicate_this() { return new MySolver(*this); }
+    virtual MySolver& assign_to_this(void* _some) {
+        MySolver* some = (MySolver*)_some;
+        std::memcpy(w, some->w, gd_param->dimension() * sizeof(COMP_T));
+        b = some->b;
+        return *this;
+    }
 }; // Class MySolver
 
 inline COMP_T MySolver::entropy() {
     return (COMP_T)stat.entropy();
 }
 
-inline COMP_T MySolver::compute_learning_rate(COMP_T eta0, N_DAT_T t) {
+inline COMP_T MySolver::compute_learning_rate(COMP_T eta0, unsigned long t) {
     return eta0 / (1 + my_param->regul_coef() * eta0 * t);
 }
 

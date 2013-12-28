@@ -139,7 +139,7 @@ MySolver& MySolver::solve(N_DAT_T* _x_pos, N_DAT_T& _n_x_pos,
 MySolver& MySolver::solve() {
     DAT_DIM_T     dim         = gd_param->dimension();
     char          gd_v        = gd_param->verbosity();
-    N_DAT_T       n_subsample = gd_param->num_of_subsamples();
+    N_DAT_T       n_subsample = gd_param->min_num_of_subsamples();
     char          my_v        = my_param->verbosity();
     unsigned int  n_trial     = my_param->num_of_trials();
     unsigned int  n_train     = my_param->num_of_trainings();
@@ -156,10 +156,10 @@ MySolver& MySolver::solve() {
     MySolver*     best_solver = NULL;
     if (!w) w = new COMP_T[dim];
     if (!p) p = new COMP_T[n_label];
-    p_margin_pos      = new COMP_T[n_label];
-    p_margin_mid      = new COMP_T[n_label];
-    term2             = new COMP_T[dim];
-    rand_x = new N_DAT_T[n_sample];
+    p_margin_pos = new COMP_T[n_label];
+    p_margin_mid = new COMP_T[n_label];
+    term2        = new COMP_T[dim];
+    rand_x       = new N_DAT_T[n_sample];
     stat.index_of_samples(rand_x);
 
     if (my_v >= 1) {
@@ -182,6 +182,7 @@ MySolver& MySolver::solve() {
     }
     for (DAT_DIM_T i = 0; i < dim; ++i) center[i] /= n_subsample;
 
+    t = 0;
     for (unsigned int i_trial = 0; i_trial < n_trial; ++i_trial) {
         if (my_v >= 1) {
             std::cout << "Trying parameters " << i_trial + 1 << " ... \n"
@@ -210,7 +211,6 @@ MySolver& MySolver::solve() {
                 if (my_v > 1 || gd_v >= 1) std::cout << std::endl;
                 else std::cout.flush();
             }
-            t = 0;
             unsigned int i, j;
             MySolver* try_solver = new MySolver(*this);
             try_solver->full_train(i, n_iter, dim, rand_x, n_sample, n_label);
@@ -297,7 +297,7 @@ COMP_T MySolver::update_p(DAT_DIM_T d, SUPV_T n_label) {
         }
         COMP_T p_new = (COMP_T)n_x_label_pos / n_x_label;
         COMP_T p_diff = p[i] - p_new;
-        diff_p += p_diff * p_diff;
+        diff_p += p_diff >= 0 ? p_diff : -p_diff;
         p[i] = p_new;
         p_margin_mid[i] = 2 * p[i] - 1;
         p_margin_pos[i] = p[i] - 1;
@@ -305,62 +305,127 @@ COMP_T MySolver::update_p(DAT_DIM_T d, SUPV_T n_label) {
     return diff_p;
 }
 
+// MySolver& MySolver::train_batch(COMP_T*   data,
+//                                 DAT_DIM_T d,
+//                                 N_DAT_T   n,
+//                                 SUPV_T*   y,
+//                                 COMP_T    eta) {
+//     COMP_T term1 = 1 - eta * my_param->regul_coef();
+//     for (DAT_DIM_T i = 0; i < d; ++i) {
+//         term2[i] = 0;
+//     }
+//     COMP_T  term2_b = 0;
+//     COMP_T  term3   = eta / n;
+//     COMP_T* dat_i   = data;
+//     for (N_DAT_T i = 0; i < n; ++i, dat_i += d) {
+//         COMP_T  score = compute_score(dat_i, d);
+//         COMP_T  p_i;
+//         if (score < -1) p_i = p_margin_neg[stat.index_of_label(y[i])];
+//         else if (score > 1) p_i = p_margin_pos[stat.index_of_label(y[i])];
+//         else p_i = p_margin_mid[stat.index_of_label(y[i])];
+//         for (DAT_DIM_T i = 0; i < d; ++i) {
+//             term2[i] += p_i * dat_i[i];
+//         }
+//         term2_b += p_i;
+//     }
+//     for (DAT_DIM_T i = 0; i < d; ++i) {
+//         w[i] = term1 * w[i] + term3 * term2[i];
+//     }
+//     b += term3 * term2_b;
+//     return *this;
+// }
+// MySolver& MySolver::train_batch(COMP_T*   data,
+//                                 DAT_DIM_T d,
+//                                 N_DAT_T*  x,
+//                                 N_DAT_T   n,
+//                                 SUPV_T*   y,
+//                                 COMP_T    eta) {
+//     COMP_T term1 = 1 - eta * my_param->regul_coef();
+//     for (DAT_DIM_T i = 0; i < d; ++i) {
+//         term2[i] = 0;
+//     }
+//     COMP_T term2_b = 0;
+//     COMP_T term3   = eta / n;
+//     for (N_DAT_T i = 0; i < n; ++i) {
+//         N_DAT_T x_i   = x[i];
+//         COMP_T* dat_i = data + d * x_i;
+//         COMP_T  score = compute_score(dat_i, d);
+//         COMP_T  p_i;
+//         if (score < -1) p_i = p_margin_neg[stat.index_of_label(y[x_i])];
+//         else if (score > 1) p_i = p_margin_pos[stat.index_of_label(y[x_i])];
+//         else p_i = p_margin_mid[stat.index_of_label(y[x_i])];
+//         for (DAT_DIM_T i = 0; i < d; ++i) {
+//             term2[i] += p_i * dat_i[i];
+//         }
+//         term2_b += p_i;
+//     }
+//     for (DAT_DIM_T i = 0; i < d; ++i) {
+//         w[i] = term1 * w[i] + term3 * term2[i];
+//     }
+//     b += term3 * term2_b;
+//     return *this;
+// }
+
 MySolver& MySolver::train_batch(COMP_T*   data,
                                 DAT_DIM_T d,
                                 N_DAT_T   n,
-                                SUPV_T*   y) {
+                                SUPV_T*   y,
+                                COMP_T    eta) {
     COMP_T term1 = 1 - eta * my_param->regul_coef();
     for (DAT_DIM_T i = 0; i < d; ++i) {
         term2[i] = 0;
     }
     COMP_T  term2_b = 0;
-    COMP_T  term3   = eta / n;
     COMP_T* dat_i   = data;
     for (N_DAT_T i = 0; i < n; ++i, dat_i += d) {
-        COMP_T  score = compute_score(dat_i, d);
+        COMP_T  score   = compute_score(dat_i, d);
+        SUPV_T  i_label = stat.index_of_label(y[i]);
         COMP_T  p_i;
-        if (score < -1) p_i = p_margin_neg[stat.index_of_label(y[i])];
-        else if (score > 1) p_i = p_margin_pos[stat.index_of_label(y[i])];
-        else p_i = p_margin_mid[stat.index_of_label(y[i])];
+        if     (score < -1) p_i = p_margin_neg[i_label];
+        else if (score > 1) p_i = p_margin_pos[i_label];
+        else                p_i = p_margin_mid[i_label];
+        COMP_T  coeff   = p_i / stat.num_of_samples_with_label(i_label);
         for (DAT_DIM_T i = 0; i < d; ++i) {
-            term2[i] += p_i * dat_i[i];
+            term2[i] += coeff * dat_i[i];
         }
-        term2_b += p_i;
+        term2_b += coeff;
     }
     for (DAT_DIM_T i = 0; i < d; ++i) {
-        w[i] = term1 * w[i] + term3 * term2[i];
+        w[i] = term1 * w[i] + eta * term2[i];
     }
-    b += term3 * term2_b;
+    b += eta * term2_b;
     return *this;
 }
 MySolver& MySolver::train_batch(COMP_T*   data,
                                 DAT_DIM_T d,
                                 N_DAT_T*  x,
                                 N_DAT_T   n,
-                                SUPV_T*   y) {
+                                SUPV_T*   y,
+                                COMP_T    eta) {
     COMP_T term1 = 1 - eta * my_param->regul_coef();
     for (DAT_DIM_T i = 0; i < d; ++i) {
         term2[i] = 0;
     }
     COMP_T term2_b = 0;
-    COMP_T term3   = eta / n;
     for (N_DAT_T i = 0; i < n; ++i) {
-        N_DAT_T x_i   = x[i];
-        COMP_T* dat_i = data + d * x_i;
-        COMP_T  score = compute_score(dat_i, d);
+        N_DAT_T x_i     = x[i];
+        COMP_T* dat_i   = data + d * x_i;
+        COMP_T  score   = compute_score(dat_i, d);
+        SUPV_T  i_label = stat.index_of_label(y[x_i]);
         COMP_T  p_i;
-        if (score < -1) p_i = p_margin_neg[stat.index_of_label(y[x_i])];
-        else if (score > 1) p_i = p_margin_pos[stat.index_of_label(y[x_i])];
-        else p_i = p_margin_mid[stat.index_of_label(y[x_i])];
+        if     (score < -1) p_i = p_margin_neg[i_label];
+        else if (score > 1) p_i = p_margin_pos[i_label];
+        else                p_i = p_margin_mid[i_label];
+        COMP_T  coeff   = p_i / stat.num_of_samples_with_label(i_label);
         for (DAT_DIM_T i = 0; i < d; ++i) {
-            term2[i] += p_i * dat_i[i];
+            term2[i] += coeff * dat_i[i];
         }
-        term2_b += p_i;
+        term2_b += coeff;
     }
     for (DAT_DIM_T i = 0; i < d; ++i) {
-        w[i] = term1 * w[i] + term3 * term2[i];
+        w[i] = term1 * w[i] + eta * term2[i];
     }
-    b += term3 * term2_b;
+    b += eta * term2_b;
     return *this;
 }
 
@@ -410,7 +475,6 @@ MySolver& MySolver::full_train(unsigned int& i,
     char          my_v        = my_param->verbosity();
     COMP_T        err         = my_param->accuracy();
     bool          show_p      = my_param->show_p_each_iter();
-    if (!gd_param->init_learning_rate()) try_learning_rate();
     for (i = 0; i < n_iter; ++i) {
         if (my_v >= 2) {
             std::cout << "    Iteration " << i + 1 << " ... ";

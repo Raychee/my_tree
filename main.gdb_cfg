@@ -1,28 +1,38 @@
 del     disp
 
 set     args data/data6.txt
-b       main.cpp:63
+b       main.cpp:60
 r
 s
 del
 
-set     gd_param->v                     = 0
-set     gd_param->eta0                  = 0
-set     gd_param->err                   = 0
-set     gd_param->eta0_try_subsample    = 0
-set     gd_param->show_obj_each_iter 	= true
-set     gd_param->out_training_proc     = 0
+set     gd_param->v                        = 0
+set     gd_param->eta0                     = 0.1
+set     gd_param->n_iter 				   = 200
+set     gd_param->err                      = 0
+set     gd_param->min_n_subsample		   = 0
+set     gd_param->eta0_try_sample_rate     = 1
+set     gd_param->eta0_try_1st    		   = 0.1
+set     gd_param->eta0_try_factor 		   = 3
+set     gd_param->show_obj_each_iter 	   = true
+set     gd_param->out_training_proc        = 0
 
-set     sgd_param->s_batch              = 100
-set     sgd_param->n_epoch              = 100
+set     sgd_param->s_batch                 = 100
+set     sgd_param->n_epoch                 = 500
 
-set     my_param->n_trial				= 10
-set     my_param->n_train 				= 1
-set     my_param->n_iter                = 10
-set 	my_param->n_iter_fine           = 5
-set     my_param->err 					= 0.001
-set     my_param->lambda                = 1e-4
-set     my_param->out_training_proc     = 0
+set     my_param->v 					   = 3
+set     my_param->lambda                   = 1e-3
+set     my_param->n_trial				   = 5
+set     my_param->n_train 				   = 1
+set     my_param->n_iter                   = 10
+set 	my_param->n_iter_fine              = 5
+set     my_param->err 					   = 0.001
+set     my_param->show_p_each_iter_ 	   = true
+# set     my_param->out_training_proc        = 0
+
+set 	my_tree_param->min_entropy_ 	   = 0.1
+set 	my_tree_param->max_depth_ 		   = 0
+set 	my_tree_param->out_training_result = 0
 
 # adv     MySolver::initialize
 # set     (w[0]) = 10
@@ -37,12 +47,12 @@ set     my_param->out_training_proc     = 0
 # set 	(p[5]) = 0.5
 # return
 
-disp    /6gf this->p
-disp    this->b
-disp    /2gf this->w
+# disp    /6gf this->p
+# disp    this->b
+# disp    /2gf this->w
 
-x       /2gf this->w
-p       this->b
-x       /6gf this->p
-x       /6gf p_margin_mid
-x       /6gf p_margin_pos
+# x       /2gf this->w
+# p       this->b
+# x       /6gf this->p
+# x       /6gf p_margin_mid
+# x       /6gf p_margin_pos

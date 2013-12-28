@@ -1,4 +1,5 @@
 # include <iostream>
+# include <iomanip>
 # include "MyTree.hpp"
 
 
@@ -14,6 +15,7 @@ MyTree::MyTree(char         _verbosity,
                COMP_T       _eta0,
                N_DAT_T      _s_batch,
                unsigned int _n_epoch,
+               N_DAT_T      _min_n_subsample,
                float        _eta0_try_sample_rate,
                COMP_T       _eta0_try_1st,
                COMP_T       _eta0_try_factor,
@@ -25,6 +27,7 @@ MyTree::MyTree(char         _verbosity,
                                 _eta0,
                                 200,
                                 1e-8,
+                                _min_n_subsample,
                                 _eta0_try_sample_rate,
                                 _eta0_try_1st,
                                 _eta0_try_factor,
@@ -62,12 +65,13 @@ MyTree::~MyTree() {
 
 MyTree& MyTree::train(COMP_T* data, N_DAT_T n, SUPV_T* y,
                       N_DAT_T* x, N_DAT_T s_x) {
-    COMP_T    min_entropy = my_tree_param->min_entropy();
-    SUPV_T    max_depth   = my_tree_param->max_depth();
+    COMP_T        min_entropy = my_tree_param->min_entropy();
+    SUPV_T        max_depth   = my_tree_param->max_depth();
+    std::ostream* out         = my_tree_param->ostream_of_training_result();
     MySolver* solver;
     solver = new MySolver(*gd_param, *sgd_param, *my_param);
     solver->training_data(data, n, y, x, s_x);
-    if (!s_x) s_x = n;
+    if (!x || !s_x) s_x = n;
     N_DAT_T* x_pos = new N_DAT_T[s_x];
     N_DAT_T* x_neg = new N_DAT_T[s_x];
     N_DAT_T  n_x_pos;
@@ -77,9 +81,15 @@ MyTree& MyTree::train(COMP_T* data, N_DAT_T n, SUPV_T* y,
     for (iterator i = begin(); i != it_end; ++i) {
         TreeNode* node;
         solver = i->pcontent();
-        if (max_depth > 0 && i->depth() >= max_depth) continue;
+        if (max_depth > 0 && i->depth() >= (unsigned)max_depth) continue;
         if (solver->entropy() < min_entropy) continue;
+        gd_param->learning_rate_1st_try(gd_param->init_learning_rate());
+        gd_param->init_learning_rate(0);
         solver->solve(x_pos, n_x_pos, x_neg, n_x_neg);
+        if (out) {
+            solver->ostream_param(*out);
+            *out << std::endl;
+        }
         solver = new MySolver(*gd_param, *sgd_param, *my_param);
         solver->training_data(data, n, y, x_pos, n_x_pos);
         node = new TreeNode(solver);
@@ -128,3 +138,20 @@ LabelStat<SUPV_T, N_DAT_T>& MyTree::test_distrib(COMP_T* data, DAT_DIM_T dim) {
     return solver->distribution();
 }
 
+MyTree& MyTree::ostream_this(std::ostream& out) {
+    out.setf(std::ios_base::left, std::ios_base::adjustfield);
+    out << "********";
+    iterator it_end = end();
+    for (iterator i = begin(); i != it_end; ++i) {
+        out << "\n****MyTreeNode(" << &i << ", parent = "
+            << i->pparent() << ")\n";
+        i->pcontent()->ostream_this(out);
+        out << "\n****children =";
+        unsigned int n_child = i->num_of_children();
+        for (unsigned int j = 0; j < n_child; ++j) {
+            out << " " << i->pchild(j);
+        }
+        out << "********";
+    }
+    return *this;
+}

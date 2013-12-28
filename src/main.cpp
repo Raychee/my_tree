@@ -7,7 +7,7 @@
 # include <cstdio>
 
 # include "my_typedefs.h"
-# include "MySolver.hpp"
+# include "MyTree.hpp"
 
 
 void read_data(const char* data_file,
@@ -25,19 +25,19 @@ int main(int argc, const char** argv)
 {
 
     char data_file[256];
-    COMP_T* X; DAT_DIM_T D; N_DAT_T N; SUPV_T* Y;
+    COMP_T* X; DAT_DIM_T D; N_DAT_T N; SUPV_T* Y, * _Y_;
 
-    GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam gd_param;
+    GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam   gd_param;
     SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam sgd_param;
-    MySolver::MyParam my_param;
+    MySolver::MyParam                                 my_param;
+    MyTree::MyTreeParam                               my_tree_param;
 
     std::ofstream file("data/log.txt");
     gd_param.ostream_of_training_process(file);
-    my_param.verbosity(3);
-    my_param.show_p_each_iter(true);
     my_param.ostream_of_training_process(file);
+    my_tree_param.ostream_of_training_result(file);
 
-    MySolver solver(gd_param, sgd_param, my_param);
+    MyTree tree(gd_param, sgd_param, my_param, my_tree_param);
 
     read_args(argc, argv, gd_param, sgd_param, my_param, data_file);
     read_data(data_file, X, D, N, Y);
@@ -55,20 +55,51 @@ int main(int argc, const char** argv)
         std::cout << std::endl;
     }
 
-    N_DAT_T* x_pos = new N_DAT_T[N];
-    N_DAT_T* x_neg = new N_DAT_T[N];
-    N_DAT_T  n_x_pos, n_x_neg;
+    // N_DAT_T* x_pos = new N_DAT_T[N];
+    // N_DAT_T* x_neg = new N_DAT_T[N];
+    // N_DAT_T  n_x_pos, n_x_neg;
 
-    solver.training_data(X, N, Y);
-    solver.solve(x_pos, n_x_pos, x_neg, n_x_neg);
+    tree.train(X, N, Y);
 
-    std::cout << solver << std::endl;
+    std::cout << tree << std::endl;
+
+    _Y_ = new SUPV_T[N];
+
+    tree.test(X, N, _Y_);
+
+    std::cout << "[ Y _Y_ X' ] = \n";
+    N_DAT_T n_correct = 0;
+    for (N_DAT_T i = 0; i < N; ++i) {
+        std::cout << std::left << std::setw(6) << Y[i] << "|" << std::setw(6) << _Y_[i];
+        for (DAT_DIM_T j = 0; j < D; ++j) {
+            std::cout << std::right << std::setw(12) << X[i * D + j];
+        }
+        std::cout << std::endl;
+        if (Y[i] == _Y_[i]) n_correct++;
+    }
+    std::cout << "Accuracy = " << (COMP_T)n_correct / N 
+              << " (" << n_correct << "/" << N << ")" << std::endl;
+
+    // std::cout << "Entropy = " << tree.entropy() << std::endl;
+    // LabelStat<SUPV_T, N_DAT_T> stat;
+    // stat.stat(Y, n_x_pos, x_pos);
+    // std::cout << "Entropy of positives = " << stat.entropy() << std::endl;
+    // stat.stat(Y, n_x_neg, x_neg);
+    // std::cout << "Entropy of negatives = " << stat.entropy() << std::endl;
+
+    // N_DAT_T x[30];
+    // for (N_DAT_T i = 0; i < 30; ++i) {
+    //     x[i] = i;
+    // }
+    // stat.stat(Y, 30, x);
+    // std::cout << "Entropy of first 30 = " << stat.entropy() << std::endl;
 
     file.close();
     delete[] X;
     delete[] Y;
-    delete[] x_pos;
-    delete[] x_neg;
+    delete[] _Y_;
+    // delete[] x_pos;
+    // delete[] x_neg;
     return 0;
 }
 

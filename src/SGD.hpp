@@ -28,7 +28,8 @@ public:
                 _COMP_T      _eta0                 = 0,
                 unsigned int _n_iter               = 200,
                 _COMP_T      _err                  = 1e-8,
-                _N_DAT_T     _eta0_try_subsample   = 0,
+                _N_DAT_T     _min_n_subsample      = 0,
+                float        _eta0_try_sample_rate = 0.3,
                 _COMP_T      _eta0_try_1st         = 0.1,
                 _COMP_T      _eta0_try_factor      = 3,
                 bool         _show_obj_each_iter   = false);
@@ -52,8 +53,10 @@ public:
             { n_iter = _n_iter; return *this; }
         GDParam& accuracy(_COMP_T _err)
             { err = _err; return *this; }
-        GDParam& num_of_subsamples(_N_DAT_T _eta0_try_subsample)
-            { eta0_try_subsample = _eta0_try_subsample; return *this; }
+        GDParam& min_num_of_subsamples(_N_DAT_T _min_n_subsample)
+            { min_n_subsample = _min_n_subsample; return *this; }
+        GDParam& learning_rate_sample_rate(float _eta0_try_sample_rate)
+            { eta0_try_sample_rate = _eta0_try_sample_rate; return *this; }
         GDParam& learning_rate_1st_try(_COMP_T _eta0_try_1st)
             { eta0_try_1st = _eta0_try_1st; return *this; }
         GDParam& learning_rate_try_factor(_COMP_T _eta0_try_factor)
@@ -69,7 +72,8 @@ public:
         _COMP_T       init_learning_rate()          const { return eta0; }
         unsigned int  num_of_iterations()           const { return n_iter; }
         _COMP_T       accuracy()                    const { return err; }
-        _N_DAT_T      num_of_subsamples()           const { return eta0_try_subsample; }
+        _N_DAT_T      min_num_of_subsamples()       const { return min_n_subsample; }
+        float         learning_rate_sample_rate()   const { return eta0_try_sample_rate; }
         _COMP_T       learning_rate_1st_try()       const { return eta0_try_1st; }
         _COMP_T       learning_rate_try_factor()    const { return eta0_try_factor; }
         bool          show_obj_each_iteration()     const { return show_obj_each_iter; }
@@ -85,8 +89,10 @@ public:
         unsigned int n_iter;
         /// Stopping criteria 2: residual error upper bound
         _COMP_T      err;
+        /// When GD does subsampling, the minimal number of samples should be chosen
+        _N_DAT_T     min_n_subsample;
         /// the ratio of sampling from the data set for determining eta0
-        _N_DAT_T     eta0_try_subsample;
+        float        eta0_try_sample_rate;
         /// the first guess of eta0 (if eta0 is not specified by user)
         _COMP_T      eta0_try_1st;
         /// the factor that eta0 multiplies for each try
@@ -103,7 +109,8 @@ public:
        _COMP_T      _eta0                 = 0,
        unsigned int _n_iter               = 200,
        _COMP_T      _err                  = 1e-8,
-       _N_DAT_T     _eta0_try_subsample   = 0,
+       _N_DAT_T     _min_n_subsample      = 0,
+       float        _eta0_try_sample_rate = 0.3,
        _COMP_T      _eta0_try_1st         = 0.1,
        _COMP_T      _eta0_try_factor      = 3,
        bool         _show_obj_each_iter   = false);
@@ -164,31 +171,32 @@ public:
     ostream_param(std::ostream& out) = 0;
 
 protected:
-    _COMP_T*   data;     ///< data buffer (external)
-    _N_DAT_T   n;        ///< total number of samples in the buffer
-    _SUPV_T*   y;        ///< labels (external)
+    _COMP_T*      data;     ///< data buffer (external)
+    _N_DAT_T      n;        ///< total number of samples in the buffer
+    _SUPV_T*      y;        ///< labels (external)
     
     // buffer variable for efficient training
     LabelStat<_SUPV_T, _N_DAT_T> stat;
 
-    GDParam*   gd_param; ///< gradient descent parameters (external)
+    GDParam*      gd_param; ///< gradient descent parameters (external)
     // temporary parameters during learning
-    _N_DAT_T   t;        ///< current pass (number of data samples passed)
-    _COMP_T    eta;      ///< current learning rate
+    unsigned long t;        ///< current pass (number of data samples passed)
+    _COMP_T       eta;      ///< current learning rate
 
     /// Determine the initial learning rate eta0 automatically according to the 
     /// given data set.
     GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
     try_learning_rate();
 
-    virtual _COMP_T compute_learning_rate(_COMP_T eta0, _N_DAT_T t) = 0;
+    virtual _COMP_T compute_learning_rate(_COMP_T eta0, unsigned long t) = 0;
 
     /// Train with all the data in "data".
     virtual GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
     train_batch(_COMP_T*   _data,
                 _DAT_DIM_T _d,
                 _N_DAT_T   _n,
-                _SUPV_T*   _y) = 0;
+                _SUPV_T*   _y,
+                _COMP_T    _eta) = 0;
 
     /// Train with a subset of data indicated by "x".
     virtual GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
@@ -196,7 +204,8 @@ protected:
                 _DAT_DIM_T _d,
                 _N_DAT_T*  _x,
                 _N_DAT_T   _n,
-                _SUPV_T*   _y) = 0;
+                _SUPV_T*   _y,
+                _COMP_T    _eta) = 0;
 
     /// Compute the object function (e.g. sum of empirical losses plus a 
     /// regularizing term) given the current parameters and data.
@@ -215,8 +224,13 @@ private:
     /// by the constructor during a GD object creation.
     bool alloc_gd_param;
     /// Create and return a temporary duplicate of the current GD solver. Used 
-    /// in determin_eta0().
+    /// in try_learning_rate().
     virtual GD* duplicate_this() = 0;
+    /// Assign the training parameters of some GD solver to this. Used in 
+    /// try_learning_rate(). Tips: Remember to cast void* into derived class 
+    /// type of pointer in the implementation. Copy only the variables that 
+    /// would be modified in train_batch().
+    virtual GD& assign_to_this(void* some) = 0;
 };
 
 
@@ -264,7 +278,8 @@ public:
         unsigned int _n_epoch              = 200,
         unsigned int _n_iter               = 200,
         _COMP_T      _err                  = 0,
-        _N_DAT_T     _eta0_try_subsample   = 0,
+        _N_DAT_T     _min_n_subsample      = 0,
+        float        _eta0_try_sample_rate = 0.3,
         _COMP_T      _eta0_try_1st         = 0.1,
         _COMP_T      _eta0_try_factor      = 3,
         bool         _show_obj_each_iter   = false);
@@ -274,6 +289,7 @@ public:
     SGD(typename GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::GDParam& _gd_param,
         SGDParam& _sgd_param);
     SGD(SGD& some);
+    SGD& operator=(SGD& some);
     virtual ~SGD();
 
     /// Train the parameters with ALL the "n" input data of dimension "dim" and 
@@ -340,7 +356,8 @@ GDParam::GDParam(_DAT_DIM_T   _dimension,
                  _COMP_T      _eta0,
                  unsigned int _n_iter,
                  _COMP_T      _err,
-                 _N_DAT_T     _eta0_try_subsample,
+                 _N_DAT_T     _min_n_subsample,
+                 float        _eta0_try_sample_rate,
                  _COMP_T      _eta0_try_1st,
                  _COMP_T      _eta0_try_factor,
                  bool         _show_obj_each_iter):
@@ -349,7 +366,8 @@ GDParam::GDParam(_DAT_DIM_T   _dimension,
          eta0(_eta0),
          n_iter(_n_iter),
          err(_err),
-         eta0_try_subsample(_eta0_try_subsample),
+         min_n_subsample(_min_n_subsample),
+         eta0_try_sample_rate(_eta0_try_sample_rate),
          eta0_try_1st(_eta0_try_1st),
          eta0_try_factor(_eta0_try_factor),
          show_obj_each_iter(_show_obj_each_iter),
@@ -364,12 +382,21 @@ inline typename GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::GDParam&
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::GDParam::
 ostream_this(std::ostream& out) {
     out << "Gradient Descent parameters:\n"
-        << "\tVerbosity = " << (int)v << "\n"
-        << "\tDimension = " << d << "\n"
-        << "\tMax number of iterations = " << n_iter << "\n"
-        << "\tStopping accuracy = " << err;
+        << "    Verbosity = " << (int)v << "\n"
+        << "    Dimension = " << d << "\n"
+        << "    Max number of iterations = " << n_iter << "\n"
+        << "    Stopping accuracy (error tolerance) = " << err << "\n"
+        << "    Minimal number of samples when subsampling = " << min_n_subsample << "\n";
     if (eta0)
-        out << "\n\tInitial learning rate = " << eta0;
+        out << "    Initial learning rate = " << eta0;
+    else {
+        out << "    Initial learning rate not specified. will be determined by guessing:\n"
+            << "        Subsampling ratio = " << eta0_try_sample_rate * 100 << "%%\n"
+            << "        First guess = " << eta0_try_1st << "\n"
+            << "        Factor between guesses = " << eta0_try_factor << "\n";
+    }
+    out << "    Show objective value for each iteration = " << show_obj_each_iter << "\n"
+        << "    Output the training process = " << (bool)out_training_proc;
     return *this;
 }
 
@@ -384,7 +411,8 @@ GD(_DAT_DIM_T   _dimension,
    _COMP_T      _eta0,
    unsigned int _n_iter,
    _COMP_T      _err,
-   _N_DAT_T     _eta0_try_subsample,
+   _N_DAT_T     _min_n_subsample,
+   float        _eta0_try_sample_rate,
    _COMP_T      _eta0_try_1st,
    _COMP_T      _eta0_try_factor,
    bool         _show_obj_each_iter)
@@ -399,7 +427,8 @@ GD(_DAT_DIM_T   _dimension,
                            _eta0,
                            _n_iter,
                            _err,
-                           _eta0_try_subsample,
+                           _min_n_subsample,
+                           _eta0_try_sample_rate,
                            _eta0_try_1st,
                            _eta0_try_factor,
                            _show_obj_each_iter);
@@ -554,18 +583,19 @@ train() {
         if (verbosity > 1) std::cout << std::endl;
         else std::cout.flush();
     }
-    for (t = 0; t < n_iter; ++t) {
+    unsigned int i;
+    for (i = 0; i < n_iter; ++i, ++t) {
         if (verbosity >= 2) {
-            std::cout << "    Iteration " << t+1 << " ... " 
+            std::cout << "    Iteration " << i+1 << " ... " 
                       << std::flush;
         }
         eta = compute_learning_rate(eta0, t);
         if (x) {
-            train_batch(data, dim, x, n_sample, y);
+            train_batch(data, dim, x, n_sample, y, eta);
             obj1 = compute_obj(data, dim, x, n_sample, y);
         }
         else {
-            train_batch(data, dim, n, y);
+            train_batch(data, dim, n, y, eta);
             obj1 = compute_obj(data, dim, n, y);
         }
         if (verbosity >= 2) {
@@ -588,7 +618,7 @@ train() {
     if (verbosity >= 1) {
         if (verbosity == 1) std::cout << "Done.\n";
         std::cout << "GD Training: finished. \n";
-        if (t < n_iter)
+        if (i < n_iter)
             std::cout << "    Training stopped at iteration " << t + 1 
                       << " with convergence.";
         else
@@ -670,9 +700,9 @@ try_learning_rate() {
                   << "Training process is skipped." << std::endl;
         return *this;
     }
-
-    _COMP_T eta0_try1, eta0_try2, obj_try1, obj_try2;
     char verbosity = gd_param->verbosity();
+    _COMP_T eta0_try1, eta0_try2, obj_try1, obj_try2, eta0_try_factor;
+    GD* GD_try1 = NULL, * GD_try2 = NULL;
     if (verbosity >= 1) {
         std::cout << "Initializing ... ";
         if (verbosity >= 2) {
@@ -684,8 +714,9 @@ try_learning_rate() {
         std::cout.flush();
     }
 
-    _N_DAT_T n_subsample = gd_param->num_of_subsamples();
-    if (!n_subsample) n_subsample = stat.num_of_samples();
+    _N_DAT_T n_subsample = gd_param->learning_rate_sample_rate() * stat.num_of_samples();
+    if (n_subsample < gd_param->min_num_of_subsamples())
+        n_subsample = gd_param->min_num_of_subsamples();
     _N_DAT_T* sub_x_i = new _N_DAT_T[n_subsample];
     stat.rand_index(sub_x_i, n_subsample);
 
@@ -694,47 +725,55 @@ try_learning_rate() {
     eta0_try1 = gd_param->learning_rate_1st_try();
     if (verbosity >= 3)
         std::cout << "        Trying eta0 = " << eta0_try1 << " ... " << std::flush;
-    GD* tempGD = duplicate_this();
-    tempGD->eta = eta0_try1;
-    tempGD->stat = stat_new;
-    tempGD->train_batch(data, dim, sub_x_i, n_subsample, y);
-    obj_try1 = tempGD->compute_obj(data, dim, sub_x_i, n_subsample, y);
-    delete tempGD;
+    GD_try1 = duplicate_this();
+    GD_try1->eta = eta0_try1;
+    GD_try1->stat = stat_new;
+    GD_try1->train_batch(data, dim, sub_x_i, n_subsample, y, eta);
+    obj_try1 = GD_try1->compute_obj(data, dim, sub_x_i, n_subsample, y);
     if (verbosity >= 3)
         std::cout << "Done. Obj = " << obj_try1 << "." << std::endl;
-    _COMP_T eta0_try_factor = gd_param->learning_rate_try_factor();
+    eta0_try_factor = gd_param->learning_rate_try_factor();
+    if (eta0_try_factor > 1) eta0_try_factor = 1 / eta0_try_factor;
     eta0_try2 = eta0_try1 * eta0_try_factor;
     if (verbosity >= 3)
         std::cout << "        Trying eta0 = " << eta0_try2 << "... " << std::flush;
-    tempGD = duplicate_this();
-    tempGD->eta = eta0_try2;
-    tempGD->stat = stat_new;
-    tempGD->train_batch(data, dim, sub_x_i, n_subsample, y);
-    obj_try2 = tempGD->compute_obj(data, dim, sub_x_i, n_subsample, y);
-    delete tempGD;
+    GD_try2 = duplicate_this();
+    GD_try2->eta = eta0_try2;
+    GD_try2->stat = stat_new;
+    GD_try2->train_batch(data, dim, sub_x_i, n_subsample, y, eta);
+    obj_try2 = GD_try2->compute_obj(data, dim, sub_x_i, n_subsample, y);
     if (verbosity >= 3)
         std::cout << "Done. Obj = " << obj_try2 << "." << std::endl;
     if (obj_try1 < obj_try2) {
         eta0_try_factor = 1 / eta0_try_factor;
         obj_try2        = obj_try1;
         eta0_try2       = eta0_try1;
+        delete GD_try2;
+        GD_try2         = GD_try1;
+        GD_try1         = NULL;
     }
     do {
-        obj_try1  = obj_try2;
+        delete GD_try1;
         eta0_try1 = eta0_try2;
+        obj_try1  = obj_try2;
+        GD_try1   = GD_try2;
         eta0_try2 = eta0_try1 * eta0_try_factor;
         if (verbosity >= 3)
             std::cout << "        Trying eta0 = " << eta0_try2 << "... " << std::flush;
-        tempGD = duplicate_this();
-        tempGD->eta = eta0_try2;
-        tempGD->stat = stat_new;
-        tempGD->train_batch(data, dim, sub_x_i, n_subsample, y);
-        obj_try2 = tempGD->compute_obj(data, dim, sub_x_i, n_subsample, y);
-        delete tempGD;
+        GD_try2 = duplicate_this();
+        GD_try2->eta = eta0_try2;
+        GD_try2->stat = stat_new;
+        GD_try2->train_batch(data, dim, sub_x_i, n_subsample, y, eta);
+        obj_try2 = GD_try2->compute_obj(data, dim, sub_x_i, n_subsample, y);
         if (verbosity >= 3)
             std::cout << "Done. Obj = " << obj_try2 << "." << std::endl;
     } while (obj_try1 > obj_try2);
+    delete GD_try2;
     gd_param->init_learning_rate(eta0_try1 * 0.9);
+    GD_try1->stat = stat;
+    t = 1;
+    assign_to_this(GD_try1);
+    delete GD_try1;
     if (verbosity == 1) std::cout << "Done." << std::endl;
     if (verbosity >= 2) {
         if (verbosity == 2) std::cout << "Done.\n";
@@ -780,7 +819,8 @@ SGD(_DAT_DIM_T   _dimension,
     unsigned int _n_epoch,
     unsigned int _n_iter,
     _COMP_T      _err,
-    _N_DAT_T     _eta0_try_subsample,
+    _N_DAT_T     _min_n_subsample,
+    float        _eta0_try_sample_rate,
     _COMP_T      _eta0_try_1st,
     _COMP_T      _eta0_try_factor,
     bool         _show_obj_each_iter)
@@ -789,7 +829,8 @@ SGD(_DAT_DIM_T   _dimension,
                                                _eta0,
                                                _n_iter,
                                                _err,
-                                               _eta0_try_subsample,
+                                               _min_n_subsample,
+                                               _eta0_try_sample_rate,
                                                _eta0_try_1st,
                                                _eta0_try_factor,
                                                _show_obj_each_iter),
@@ -837,6 +878,22 @@ template <typename _COMP_T,
           typename _SUPV_T,
           typename _DAT_DIM_T,
           typename _N_DAT_T>
+SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
+SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
+operator=(SGD& some) {
+    GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::operator=(some);
+    if (alloc_sgd_param && sgd_param != some.sgd_param) {
+        delete sgd_param;
+        alloc_sgd_param = false;
+    }
+    sgd_param = some.sgd_param;
+    return *this;
+}
+
+template <typename _COMP_T,
+          typename _SUPV_T,
+          typename _DAT_DIM_T,
+          typename _N_DAT_T>
 SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 ~SGD() {
     if (alloc_sgd_param) delete sgd_param;
@@ -873,7 +930,6 @@ train() {
         std::cout <<  ".\nSGD Training: begin." << std::endl;
     }
     if (!this->gd_param->init_learning_rate()) this->try_learning_rate();
-    this->t = 0;
     rand_x = new _N_DAT_T[n_sample];
     _COMP_T obj0 = std::numeric_limits<_COMP_T>::max();
     _COMP_T obj1;
@@ -979,7 +1035,7 @@ train_epoch(_DAT_DIM_T _d, _N_DAT_T* _x,
                       << " ... " << std::flush;
         }
         this->eta = this->compute_learning_rate(eta0, this->t);
-        this->train_batch(this->data, _d, x_batch, _s_batch, this->y);
+        this->train_batch(this->data, _d, x_batch, _s_batch, this->y, this->eta);
         if (_v >= 3) {
             std::cout << "Done. eta = " << this->eta;
             if (show_obj_each_iter) {
@@ -997,7 +1053,7 @@ train_epoch(_DAT_DIM_T _d, _N_DAT_T* _x,
                       << num_of_batches << " ... " << std::flush;
         }
         this->eta = this->compute_learning_rate(eta0, this->t);
-        this->train_batch(this->data, _d, x_batch, _n_remain, this->y);
+        this->train_batch(this->data, _d, x_batch, _n_remain, this->y, this->eta);
         ++this->t;
         if (_v >= 3) {
             std::cout << "Done. eta = " << this->eta;

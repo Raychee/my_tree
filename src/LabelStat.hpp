@@ -363,9 +363,9 @@ entropy() {
     double  ent = 0;
     for (_SUPV_T i = 0; i < n_label; ++i) {
         double p = (double)n_x_of_label[i] / n_sample;
-        ent += p * std::log2(p);
+        ent -= p * std::log2(p);
     }
-    return -ent;
+    return ent;
 }
 
 
