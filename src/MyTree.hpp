@@ -63,8 +63,6 @@ public:
     LabelStat<SUPV_T, N_DAT_T>& 
             test_distrib(COMP_T* data, DAT_DIM_T dim);
 
-    MyTree& ostream_this(std::ostream& out);
-
 private:
     GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam*   gd_param;
     SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam* sgd_param;
@@ -73,11 +71,6 @@ private:
 
     bool alloc;
 };
-
-inline std::ostream& operator<<(std::ostream& out, MyTree& tree) {
-    tree.ostream_this(out);
-    return out;
-}
 
 
 # endif

@@ -60,12 +60,12 @@ public:
 
         MyParam& ostream_this(std::ostream& out) {
             out << "MySolver parameters:\n"
-                << "\tVerbosity = " << (int)v << "\n"
-                << "\tRegularization coefficient = " << lambda << "\n"
-                << "\tNumber of initial guesses = " << n_trial << "\n"
-                << "\tNumber of trainings for each guess = " << n_train << "\n"
-                << "\tMax number of full iterations = " << n_iter << "\n"
-                << "\tStopping accuracy = " << err;
+                << "    Verbosity = " << (int)v << "\n"
+                << "    Regularization coefficient = " << lambda << "\n"
+                << "    Number of initial guesses = " << n_trial << "\n"
+                << "    Number of trainings for each guess = " << n_train << "\n"
+                << "    Max number of full iterations = " << n_iter << "\n"
+                << "    Stopping accuracy = " << err;
             return *this;
         }
 
@@ -195,6 +195,7 @@ private:
 
     COMP_T    compute_score(COMP_T* dat_i, DAT_DIM_T d) const;
     COMP_T    compute_norm(DAT_DIM_T d) const;
+    COMP_T    info_gain(N_DAT_T n_sample, SUPV_T n_label) const;
 
     // Inherited functions
     virtual MySolver* duplicate_this() { return new MySolver(*this); }

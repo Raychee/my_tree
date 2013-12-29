@@ -60,6 +60,7 @@ int main(int argc, const char** argv)
     // N_DAT_T  n_x_pos, n_x_neg;
 
     tree.train(X, N, Y);
+    
 
     std::cout << tree << std::endl;
 
@@ -70,7 +71,7 @@ int main(int argc, const char** argv)
     std::cout << "[ Y _Y_ X' ] = \n";
     N_DAT_T n_correct = 0;
     for (N_DAT_T i = 0; i < N; ++i) {
-        std::cout << std::left << std::setw(6) << Y[i] << "|" << std::setw(6) << _Y_[i];
+        std::cout << std::left << std::setw(6) << Y[i] << "|" << std::setw(6) << _Y_[i] << "|";
         for (DAT_DIM_T j = 0; j < D; ++j) {
             std::cout << std::right << std::setw(12) << X[i * D + j];
         }

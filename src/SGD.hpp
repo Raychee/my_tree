@@ -681,8 +681,8 @@ template <typename _COMP_T,
 inline GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 ostream_this(std::ostream& out) {
-    out << "Data: " << stat.num_of_samples() << " samples, "
-        << stat.num_of_labels() << " classes.\n";
+    stat.ostream_this(out);
+    out << "\n";
     gd_param->ostream_this(out);
     return *this;
 }
@@ -728,19 +728,18 @@ try_learning_rate() {
     GD_try1 = duplicate_this();
     GD_try1->eta = eta0_try1;
     GD_try1->stat = stat_new;
-    GD_try1->train_batch(data, dim, sub_x_i, n_subsample, y, eta);
+    GD_try1->train_batch(data, dim, sub_x_i, n_subsample, y, eta0_try1);
     obj_try1 = GD_try1->compute_obj(data, dim, sub_x_i, n_subsample, y);
     if (verbosity >= 3)
         std::cout << "Done. Obj = " << obj_try1 << "." << std::endl;
     eta0_try_factor = gd_param->learning_rate_try_factor();
-    if (eta0_try_factor > 1) eta0_try_factor = 1 / eta0_try_factor;
     eta0_try2 = eta0_try1 * eta0_try_factor;
     if (verbosity >= 3)
         std::cout << "        Trying eta0 = " << eta0_try2 << "... " << std::flush;
     GD_try2 = duplicate_this();
     GD_try2->eta = eta0_try2;
     GD_try2->stat = stat_new;
-    GD_try2->train_batch(data, dim, sub_x_i, n_subsample, y, eta);
+    GD_try2->train_batch(data, dim, sub_x_i, n_subsample, y, eta0_try2);
     obj_try2 = GD_try2->compute_obj(data, dim, sub_x_i, n_subsample, y);
     if (verbosity >= 3)
         std::cout << "Done. Obj = " << obj_try2 << "." << std::endl;
@@ -763,11 +762,11 @@ try_learning_rate() {
         GD_try2 = duplicate_this();
         GD_try2->eta = eta0_try2;
         GD_try2->stat = stat_new;
-        GD_try2->train_batch(data, dim, sub_x_i, n_subsample, y, eta);
+        GD_try2->train_batch(data, dim, sub_x_i, n_subsample, y, eta0_try2);
         obj_try2 = GD_try2->compute_obj(data, dim, sub_x_i, n_subsample, y);
         if (verbosity >= 3)
             std::cout << "Done. Obj = " << obj_try2 << "." << std::endl;
-    } while (obj_try1 > obj_try2);
+    } while (obj_try1 >= obj_try2);
     delete GD_try2;
     gd_param->init_learning_rate(eta0_try1 * 0.9);
     GD_try1->stat = stat;
@@ -803,7 +802,8 @@ inline typename SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::SGDParam&
 SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::SGDParam::
 ostream_this(std::ostream& out) {
     out << "Stochastic Gradient Descent parameters:\n"
-        << "\tMax number of epoches = " << n_epoch;
+        << "    Size of each batch = " << s_batch << "\n"
+        << "    Max number of epoches = " << n_epoch;
     return *this;
 }
 

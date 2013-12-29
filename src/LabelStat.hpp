@@ -76,7 +76,7 @@ public:
     ///                 Otherwise only "n" indexes are randomly chosen out of the 
     ///                 set and stored in "x".
     LabelStat& rand_index(_N_DAT_T* x, _N_DAT_T n = 0);
-    double     entropy();
+    double     entropy() const;
 
     LabelStat& ostream_this(std::ostream& out);
 
@@ -261,7 +261,7 @@ ostream_this(std::ostream& out) {
     for (_SUPV_T i = 0; i < n_label; ++i) {
         _N_DAT_T  n_x_label = n_x_of_label[i];
         _N_DAT_T* x_label   = x_of_label[i];
-        out << "\n\tLabel " << std::setw(4) << label_[i]
+        out << "\n    Label " << std::setw(4) << label_[i]
             << " has " << std::setw(4) << n_x_label << " samples: ";
         for (_N_DAT_T j = 0; j < n_x_label; ++j) {
             out << std::setw(4) << x_label[j];
@@ -358,7 +358,7 @@ rand_index(_N_DAT_T* x, _N_DAT_T n) {
 
 template<typename _SUPV_T, typename _N_DAT_T>
 double LabelStat<_SUPV_T, _N_DAT_T>::
-entropy() {
+entropy() const {
     if (n_label <= 1) return 0;
     double  ent = 0;
     for (_SUPV_T i = 0; i < n_label; ++i) {

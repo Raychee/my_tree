@@ -1,5 +1,6 @@
 # include <iostream>
 # include <limits>
+# include <cmath>
 
 # include "MySolver.hpp"
 
@@ -104,20 +105,25 @@ MySolver::~MySolver() {
 }
 
 MySolver& MySolver::ostream_this(std::ostream& out) {
-    SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::ostream_this(out);
+    stat.ostream_this(out);
     out << "\n";
-    my_param->ostream_this(out);
-    out << "\nTraining parameters:\n\t[w, b] = ";
-    ostream_param(out);
-    out << "\nProbabilistic distributions ([label|probability]):";
-    SUPV_T n_label = stat.num_of_labels();
-    for (SUPV_T i = 0; i < n_label; ++i) {
-        out << "\n\tLabel " << stat.label(i) << " : " << p[i];
+    // SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::ostream_this(out);
+    // out << "\n";
+    // my_param->ostream_this(out);
+    if (w && p) {
+        out << "\nTraining parameters:\n    [w, b] = ";
+        ostream_param(out);
+        out << "\nProbabilistic distributions ([label|probability]):\n    ";
+        SUPV_T n_label = stat.num_of_labels();
+        for (SUPV_T i = 0; i < n_label; ++i) {
+            out << "[ " << stat.label(i) << " | " << p[i] << " ]";
+        }
     }
     return *this;
 }
 
 MySolver& MySolver::ostream_param(std::ostream& out) {
+    if (!w) return *this;
     DAT_DIM_T dim = gd_param->dimension();
     for (DAT_DIM_T i = 0; i < dim; ++i) {
         out << w[i] << " ";
@@ -140,6 +146,7 @@ MySolver& MySolver::solve() {
     DAT_DIM_T     dim         = gd_param->dimension();
     char          gd_v        = gd_param->verbosity();
     N_DAT_T       n_subsample = gd_param->min_num_of_subsamples();
+    COMP_T        eta0        = gd_param->init_learning_rate();
     char          my_v        = my_param->verbosity();
     unsigned int  n_trial     = my_param->num_of_trials();
     unsigned int  n_train     = my_param->num_of_trainings();
@@ -152,7 +159,7 @@ MySolver& MySolver::solve() {
     N_DAT_T*      rand_x;
     N_DAT_T*      x_subsample;
     COMP_T*       center;
-    COMP_T        obj_opt     = std::numeric_limits<COMP_T>::max();
+    COMP_T        info_gain_opt = 0;
     MySolver*     best_solver = NULL;
     if (!w) w = new COMP_T[dim];
     if (!p) p = new COMP_T[n_label];
@@ -212,6 +219,7 @@ MySolver& MySolver::solve() {
                 else std::cout.flush();
             }
             unsigned int i, j;
+            gd_param->init_learning_rate(eta0);
             MySolver* try_solver = new MySolver(*this);
             try_solver->full_train(i, n_iter, dim, rand_x, n_sample, n_label);
             if (my_v == 1 && gd_v < 1) std::cout << "Done.";
@@ -241,11 +249,11 @@ MySolver& MySolver::solve() {
                 else std::cout << "    Max number of iterations has been reached.";
                 std::cout << std::endl;
             }
-            COMP_T obj = try_solver->compute_obj(data, dim, rand_x, n_sample, y);
-            if (obj < obj_opt) {
+            COMP_T info_gain = try_solver->info_gain(n_sample, n_label);
+            if (info_gain > info_gain_opt) {
                 delete best_solver;
                 best_solver = try_solver;
-                obj_opt     = obj;
+                info_gain_opt = info_gain;
                 if (my_v >= 1) {
                     std::cout << "    Current result is the best so far."
                               << std::endl;
@@ -260,10 +268,12 @@ MySolver& MySolver::solve() {
             }
         }
     }
-    std::memcpy(w, best_solver->w, dim * sizeof(COMP_T));
-    b = best_solver->b;
-    std::memcpy(p, best_solver->p, n_label * sizeof(COMP_T));
-    if (x_pos && x_neg) update_p(dim, n_label);
+    if (best_solver) {
+        std::memcpy(w, best_solver->w, dim * sizeof(COMP_T));
+        b = best_solver->b;
+        std::memcpy(p, best_solver->p, n_label * sizeof(COMP_T));
+        if (x_pos && x_neg) update_p(dim, n_label);
+    }
     
     delete[] p_margin_mid; p_margin_mid = NULL;
     delete[] p_margin_pos; p_margin_pos = NULL;
@@ -430,20 +440,60 @@ MySolver& MySolver::train_batch(COMP_T*   data,
 }
 
 // Using Hinge Loss
+// COMP_T MySolver::compute_obj(COMP_T*   data,
+//                              DAT_DIM_T d,
+//                              N_DAT_T   n,
+//                              SUPV_T*   y) {
+//     COMP_T loss  = 0;
+//     COMP_T* dat_i = data;
+//     for (N_DAT_T i = 0; i < n; ++i, dat_i += d) {
+//         COMP_T  p_y      = p[stat.index_of_label(y[i])];
+//         COMP_T  score    = compute_score(dat_i, d);
+//         COMP_T  pos_loss = score < 1 ? 1 - score : 0;
+//         COMP_T  neg_loss = score > -1 ? 1 + score : 0;
+//         loss += p_y * pos_loss + (1 - p_y) * neg_loss;
+//     }
+//     return loss / n + 0.5 * my_param->regul_coef() * compute_norm(d);
+// }
+// // Using Hinge Loss
+// COMP_T MySolver::compute_obj(COMP_T*   data,
+//                              DAT_DIM_T d,
+//                              N_DAT_T*  x,
+//                              N_DAT_T   n,
+//                              SUPV_T*   y) {
+//     COMP_T loss = 0;
+//     for (N_DAT_T i = 0; i < n; ++i) {
+//         N_DAT_T x_i      = x[i];
+//         COMP_T  p_y      = p[stat.index_of_label(y[x_i])];
+//         COMP_T  score    = compute_score(data + d * x_i, d);
+//         COMP_T  pos_loss = score < 1 ? 1 - score : 0;
+//         COMP_T  neg_loss = score > -1 ? 1 + score : 0;
+//         loss += p_y * pos_loss + (1 - p_y) * neg_loss;
+//     }
+//     return loss / n + 0.5 * my_param->regul_coef() * compute_norm(d);
+// }
+
+// Using Hinge Loss
 COMP_T MySolver::compute_obj(COMP_T*   data,
                              DAT_DIM_T d,
                              N_DAT_T   n,
                              SUPV_T*   y) {
     COMP_T loss  = 0;
-    COMP_T* dat_i = data;
-    for (N_DAT_T i = 0; i < n; ++i, dat_i += d) {
-        COMP_T  p_y      = p[stat.index_of_label(y[i])];
-        COMP_T  score    = compute_score(dat_i, d);
-        COMP_T  pos_loss = score < 1 ? 1 - score : 0;
-        COMP_T  neg_loss = score > -1 ? 1 + score : 0;
-        loss += p_y * pos_loss + (1 - p_y) * neg_loss;
+    SUPV_T n_label = stat.num_of_labels();
+    for (SUPV_T k = 0; k < n_label; ++k) {
+        N_DAT_T* x_label   = stat[k];
+        N_DAT_T  n_x_label = stat.num_of_samples_with_label(k);
+        COMP_T   p_k       = p[k];
+        COMP_T   loss_k    = 0;
+        for (N_DAT_T i = 0; i < n_x_label; ++i) {
+            COMP_T  score    = compute_score(data + d * x_label[i], d);
+            COMP_T  pos_loss = score < 1 ? 1 - score : 0;
+            COMP_T  neg_loss = score > -1 ? 1 + score : 0;
+            loss_k += p_k * pos_loss + (1 - p_k) * neg_loss;
+        }
+        loss += loss_k / n_x_label;
     }
-    return loss / n + 0.5 * my_param->regul_coef() * compute_norm(d);
+    return loss + 0.5 * my_param->regul_coef() * compute_norm(d);
 }
 // Using Hinge Loss
 COMP_T MySolver::compute_obj(COMP_T*   data,
@@ -451,16 +501,22 @@ COMP_T MySolver::compute_obj(COMP_T*   data,
                              N_DAT_T*  x,
                              N_DAT_T   n,
                              SUPV_T*   y) {
-    COMP_T loss = 0;
-    for (N_DAT_T i = 0; i < n; ++i) {
-        N_DAT_T x_i      = x[i];
-        COMP_T  p_y      = p[stat.index_of_label(y[x_i])];
-        COMP_T  score    = compute_score(data + d * x_i, d);
-        COMP_T  pos_loss = score < 1 ? 1 - score : 0;
-        COMP_T  neg_loss = score > -1 ? 1 + score : 0;
-        loss += p_y * pos_loss + (1 - p_y) * neg_loss;
+    COMP_T loss  = 0;
+    SUPV_T n_label = stat.num_of_labels();
+    for (SUPV_T k = 0; k < n_label; ++k) {
+        N_DAT_T* x_label   = stat[k];
+        N_DAT_T  n_x_label = stat.num_of_samples_with_label(k);
+        COMP_T   p_k       = p[k];
+        COMP_T   loss_k    = 0;
+        for (N_DAT_T i = 0; i < n_x_label; ++i) {
+            COMP_T  score    = compute_score(data + d * x_label[i], d);
+            COMP_T  pos_loss = score < 1 ? 1 - score : 0;
+            COMP_T  neg_loss = score > -1 ? 1 + score : 0;
+            loss_k += p_k * pos_loss + (1 - p_k) * neg_loss;
+        }
+        loss += loss_k / n_x_label;
     }
-    return loss / n + 0.5 * my_param->regul_coef() * compute_norm(d);
+    return loss + 0.5 * my_param->regul_coef() * compute_norm(d);
 }
 
 MySolver& MySolver::full_train(unsigned int& i,
@@ -587,4 +643,18 @@ COMP_T MySolver::compute_norm(DAT_DIM_T d) const {
         norm += w_i * w_i;
     }
     return norm;
+}
+
+COMP_T MySolver::info_gain(N_DAT_T n_sample, SUPV_T n_label) const {
+    if (!n_x_pos || !n_x_neg) return 0;
+    COMP_T ent_pos = 0, ent_neg = 0;
+    for (SUPV_T i = 0; i < n_label; ++i) {
+        COMP_T p_i = p[i];
+        COMP_T n_i = stat.num_of_samples_with_label(i);
+        COMP_T p_k_pos = p_i * n_i / n_x_pos;
+        COMP_T p_k_neg = (1 - p_i) * n_i / n_x_neg;
+        ent_pos -= p_k_pos <= 0 ? 0 : p_k_pos * std::log2(p_k_pos);
+        ent_neg -= p_k_neg <= 0 ? 0 : p_k_neg * std::log2(p_k_neg);
+    }
+    return stat.entropy() - (ent_pos * n_x_pos + ent_neg * n_x_neg) / n_sample;
 }

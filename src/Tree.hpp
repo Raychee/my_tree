@@ -13,6 +13,9 @@ class Tree {
 public:
     Tree(): root(NULL) {}
     virtual ~Tree();
+
+    virtual Tree& ostream_this(std::ostream& out);
+
 protected:
     /// A basic tree node structure.
     /// 
@@ -82,6 +85,12 @@ protected:
 }; // class Tree
 
 template<class _DATA> inline 
+std::ostream& operator<<(std::ostream& out, Tree<_DATA>& tree) {
+    tree.ostream_this(out);
+    return out;
+}
+
+template<class _DATA> inline 
 Tree<_DATA>::~Tree() {
     if (!root) return;
     std::queue<TreeNode*> breadth_first_traverse;
@@ -98,6 +107,25 @@ Tree<_DATA>::~Tree() {
         breadth_first_traverse.pop();
         delete cur;
     }
+}
+
+template<class _DATA>
+Tree<_DATA>&
+Tree<_DATA>::ostream_this(std::ostream& out) {
+    out << "********************************";
+    iterator it_end = end();
+    for (iterator i = begin(); i != it_end; ++i) {
+        out << "\n****MyTreeNode(" << &i << ", parent = "
+            << i->pparent() << ")\n";
+        out << i->content();
+        out << "\n****children =";
+        unsigned int n_child = i->num_of_children();
+        for (unsigned int j = 0; j < n_child; ++j) {
+            out << " " << i->pchild(j);
+        }
+        out << "\n****************";
+    }
+    return *this;
 }
 
 template<class _DATA> inline 

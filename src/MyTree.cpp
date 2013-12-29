@@ -68,6 +68,7 @@ MyTree& MyTree::train(COMP_T* data, N_DAT_T n, SUPV_T* y,
     COMP_T        min_entropy = my_tree_param->min_entropy();
     SUPV_T        max_depth   = my_tree_param->max_depth();
     std::ostream* out         = my_tree_param->ostream_of_training_result();
+    gd_param->init_learning_rate(gd_param->learning_rate_1st_try());
     MySolver* solver;
     solver = new MySolver(*gd_param, *sgd_param, *my_param);
     solver->training_data(data, n, y, x, s_x);
@@ -136,22 +137,4 @@ LabelStat<SUPV_T, N_DAT_T>& MyTree::test_distrib(COMP_T* data, DAT_DIM_T dim) {
         solver = node->pcontent();
     }
     return solver->distribution();
-}
-
-MyTree& MyTree::ostream_this(std::ostream& out) {
-    out.setf(std::ios_base::left, std::ios_base::adjustfield);
-    out << "********";
-    iterator it_end = end();
-    for (iterator i = begin(); i != it_end; ++i) {
-        out << "\n****MyTreeNode(" << &i << ", parent = "
-            << i->pparent() << ")\n";
-        i->pcontent()->ostream_this(out);
-        out << "\n****children =";
-        unsigned int n_child = i->num_of_children();
-        for (unsigned int j = 0; j < n_child; ++j) {
-            out << " " << i->pchild(j);
-        }
-        out << "********";
-    }
-    return *this;
 }
