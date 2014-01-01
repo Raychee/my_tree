@@ -115,8 +115,8 @@ Tree<_DATA>::ostream_this(std::ostream& out) {
     out << "********************************";
     iterator it_end = end();
     for (iterator i = begin(); i != it_end; ++i) {
-        out << "\n****MyTreeNode(" << &i << ", parent = "
-            << i->pparent() << ")\n";
+        out << "\n****MyTreeNode(" << &i << ", depth = " << i->depth() 
+            << ", parent = " << i->pparent() << ")\n";
         out << i->content();
         out << "\n****children =";
         unsigned int n_child = i->num_of_children();

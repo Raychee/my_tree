@@ -106,7 +106,6 @@ MySolver::~MySolver() {
 
 MySolver& MySolver::ostream_this(std::ostream& out) {
     stat.ostream_this(out);
-    out << "\n";
     // SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::ostream_this(out);
     // out << "\n";
     // my_param->ostream_this(out);
