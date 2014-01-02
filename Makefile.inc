@@ -1,19 +1,30 @@
-OS ?= MAC
-SCHEME ?= DEBUG
+MAC := $(shell uname -a|grep -i darwin)
 
-ifeq ($(OS), LINUX)
-LIB_SUFFIX = so
-else	# $(OS) = MAC
+DEBUG := 1
+
+
+ifdef MAC
 LIB_SUFFIX = dylib
+CC         = clang++
+else
+LIB_SUFFIX = so
+CC         = g++
 endif
 
-CC = clang++
-LD = clang++
+LD   = $(CC)
+LIBS = -L../lib
+CFLAGS = -std=c++11 -pipe
 
-ifeq ($(SCHEME), DEBUG)
-CFLAGS = -Wall -Wextra -pedantic -pipe -ggdb3 -std=c++11
-LFLAGS = 
+ifdef DEBUG
+CFLAGS += -Wall -Wextra -pedantic -ggdb3
 else
-CFLAGS = -pipe -O3
-LFLAGS =
+CFLAGS += -O3
+endif
+
+ifdef MAC
+CFLAGS += -stdlib=libc++ -mmacosx-version-min=10.7
+LFLAGS += -Wl,-rpath,@executable_path/../lib
+LIBS   += -lc++
+else
+LFLAGS += -Wl,-rpath,'$$ORIGIN/../lib'
 endif

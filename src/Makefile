@@ -1,21 +1,8 @@
 include ../Makefile.inc
 
-LIBS   = -L../lib -lc++
+LIBS  +=
 OBJ    = main.o MyTree.o MySolver.o
 TARGET = main
-
-ifeq ($(OS), LINUX)
-LFLAGS += -Wl,-rpath,'$$ORIGIN/../lib'
-else
-CFLAGS += -mmacosx-version-min=10.7 -stdlib=libc++
-LFLAGS += -Wl,-rpath,@executable_path/../lib
-endif
-
-# ifeq ($(LD), clang)
-# CFLAGS += -stdlib=libc++
-# LIBS   += -lc++
-# endif
-
 
 ../bin/$(TARGET): $(OBJ)
 	$(LD) $(LFLAGS) $(LIBS) $(OBJ) -o ../bin/$(TARGET)

@@ -90,8 +90,8 @@ MySolver::MySolver(MySolver& some):
         std::memcpy(p_margin_mid, some.p_margin_mid, n_label * sizeof(COMP_T));
     }
     if (some.term2) {
-        term2 = new COMP_T[n_label];
-        std::memcpy(term2, some.term2, n_label * sizeof(COMP_T));
+        term2 = new COMP_T[dim];
+        std::memcpy(term2, some.term2, dim * sizeof(COMP_T));
     }
 }
 

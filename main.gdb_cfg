@@ -1,17 +1,17 @@
 del     disp
 
-set     args data/data6.txt
+set     args data/data.txt
 b       main.cpp:60
 r
 s
 del
 
-set     gd_param->v                        = 2
+set     gd_param->v                        = 1
 set     gd_param->eta0                     = 0.1
 set     gd_param->n_iter 				   = 200
 set     gd_param->err                      = 0
-set     gd_param->min_n_subsample		   = 0
-set     gd_param->eta0_try_sample_rate     = 1
+set     gd_param->min_n_subsample		   = 150
+set     gd_param->eta0_try_sample_rate     = 0.3
 set     gd_param->eta0_try_1st    		   = 0.1
 set     gd_param->eta0_try_factor 		   = 3
 set     gd_param->show_obj_each_iter 	   = true

@@ -32,10 +32,10 @@ int main(int argc, const char** argv)
     MySolver::MyParam                                 my_param;
     MyTree::MyTreeParam                               my_tree_param;
 
-    std::ofstream file("data/log.txt");
-    gd_param.ostream_of_training_process(file);
-    my_param.ostream_of_training_process(file);
-    my_tree_param.ostream_of_training_result(file);
+    // std::ofstream file("data/log.txt");
+    // gd_param.ostream_of_training_process(file);
+    // my_param.ostream_of_training_process(file);
+    // my_tree_param.ostream_of_training_result(file);
 
     MyTree tree(gd_param, sgd_param, my_param, my_tree_param);
 
@@ -44,16 +44,16 @@ int main(int argc, const char** argv)
 
     gd_param.dimension(D);
 
-    std::cout << "N = " << N << std::endl;
-    std::cout << "D = " << D << std::endl;
-    std::cout << "[ Y X' ] = \n";
-    for (N_DAT_T i = 0; i < N; ++i) {
-        std::cout << std::left << std::setw(6) << Y[i] << "|";
-        for (DAT_DIM_T j = 0; j < D; ++j) {
-            std::cout << std::right << std::setw(12) << X[i * D + j];
-        }
-        std::cout << std::endl;
-    }
+    // std::cout << "N = " << N << std::endl;
+    // std::cout << "D = " << D << std::endl;
+    // std::cout << "[ Y X' ] = \n";
+    // for (N_DAT_T i = 0; i < N; ++i) {
+    //     std::cout << std::left << std::setw(6) << Y[i] << "|";
+    //     for (DAT_DIM_T j = 0; j < D; ++j) {
+    //         std::cout << std::right << std::setw(12) << X[i * D + j];
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     // N_DAT_T* x_pos = new N_DAT_T[N];
     // N_DAT_T* x_neg = new N_DAT_T[N];
@@ -71,11 +71,11 @@ int main(int argc, const char** argv)
     std::cout << "[ Y _Y_ X' ] = \n";
     N_DAT_T n_correct = 0;
     for (N_DAT_T i = 0; i < N; ++i) {
-        std::cout << std::left << std::setw(6) << Y[i] << "|" << std::setw(6) << _Y_[i] << "|";
-        for (DAT_DIM_T j = 0; j < D; ++j) {
-            std::cout << std::right << std::setw(12) << X[i * D + j];
-        }
-        std::cout << std::endl;
+        // std::cout << std::left << std::setw(6) << Y[i] << "|" << std::setw(6) << _Y_[i] << "|";
+        // for (DAT_DIM_T j = 0; j < D; ++j) {
+        //     std::cout << std::right << std::setw(12) << X[i * D + j];
+        // }
+        // std::cout << std::endl;
         if (Y[i] == _Y_[i]) n_correct++;
     }
     std::cout << "Accuracy = " << (COMP_T)n_correct / N 
@@ -95,7 +95,7 @@ int main(int argc, const char** argv)
     // stat.stat(Y, 30, x);
     // std::cout << "Entropy of first 30 = " << stat.entropy() << std::endl;
 
-    file.close();
+    // file.close();
     delete[] X;
     delete[] Y;
     delete[] _Y_;
@@ -113,9 +113,9 @@ void read_data(const char* data_file,
         std::exit(1);
     }
     N = 0; D = 0;
-    char line_str[4096];
+    char line_str[16384];
     std::istringstream line;
-    while (file.getline(line_str, 4096)) {
+    while (file.getline(line_str, 16384)) {
         if (std::isdigit(line_str[0])) N++;
         else continue;      // not a valid line that contains data
         int i, line_str_len = std::strlen(line_str);
@@ -148,7 +148,7 @@ void read_data(const char* data_file,
     file.seekg(0);
 
     N_DAT_T n = 0;
-    while (n < N && file.getline(line_str, 4096)) {
+    while (n < N && file.getline(line_str, 16384)) {
         if (!std::isdigit(line_str[0])) continue;
         int line_str_len = std::strlen(line_str);
         for (int i = 0; i < line_str_len; ++i) {
