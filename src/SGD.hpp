@@ -553,7 +553,6 @@ GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 train() {
     _DAT_DIM_T   dim                = gd_param->dimension();
     char         verbosity          = gd_param->verbosity();
-    _COMP_T      eta0               = gd_param->init_learning_rate();
     unsigned int n_iter             = gd_param->num_of_iterations();
     _COMP_T      err                = gd_param->accuracy();
     bool         show_obj_each_iter = gd_param->show_obj_each_iteration();
@@ -571,7 +570,15 @@ train() {
         if (err > 0) std::cout << " or accuracy higher than " << err;
         std::cout <<  ".\nGD Training: begin." << std::endl;
     }
-    if (!eta0) try_learning_rate();
+    if (!gd_param->init_learning_rate()) try_learning_rate();
+    _COMP_T eta0 = gd_param->init_learning_rate();
+    if (eta0 < err) {
+        if (verbosity >= 1) {
+            std::cout << "GD Training: finished.\n"
+                      << "    Accuracy already satisfied." << std::endl;
+        }
+        return *this;
+    }
     _COMP_T obj0 = std::numeric_limits<_COMP_T>::max();
     _COMP_T obj1;
     if (n > n_sample) {
@@ -695,6 +702,7 @@ GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 try_learning_rate() {
     _DAT_DIM_T dim = gd_param->dimension();
+    _COMP_T    err = gd_param->accuracy();
     if (!dim) {
         std::cerr << "WARNING: SGD: Dimensionality has not been specified. "
                   << "Training process is skipped." << std::endl;
@@ -723,6 +731,11 @@ try_learning_rate() {
     LabelStat<_SUPV_T, _N_DAT_T> stat_new(y, n_subsample, sub_x_i);
 
     eta0_try1 = gd_param->learning_rate_1st_try();
+    if (eta0_try1 < err) {
+        gd_param->init_learning_rate(eta0_try1);
+        t = 1;
+        return *this;
+    }
     if (verbosity >= 3)
         std::cout << "        Trying eta0 = " << eta0_try1 << " ... " << std::flush;
     GD_try1       = duplicate_this();
@@ -734,6 +747,12 @@ try_learning_rate() {
         std::cout << "Done. Obj = " << obj_try1 << "." << std::endl;
     eta0_try_factor = gd_param->learning_rate_try_factor();
     eta0_try2 = eta0_try1 * eta0_try_factor;
+    if (eta0_try2 < err) {
+        delete GD_try1;
+        gd_param->init_learning_rate(eta0_try2);
+        t = 1;
+        return *this;
+    }
     if (verbosity >= 3)
         std::cout << "        Trying eta0 = " << eta0_try2 << "... " << std::flush;
     GD_try2       = duplicate_this();
@@ -766,9 +785,10 @@ try_learning_rate() {
         obj_try2 = GD_try2->compute_obj(data, dim, sub_x_i, n_subsample, y);
         if (verbosity >= 3)
             std::cout << "Done. Obj = " << obj_try2 << "." << std::endl;
-    } while (obj_try1 >= obj_try2);
+    } while (obj_try1 >= obj_try2 && eta0_try2 >= err);
     delete GD_try2;
-    gd_param->init_learning_rate(eta0_try1 * 0.9);
+    if (eta0_try_factor > 1) eta0_try_factor = 1 / eta0_try_factor;
+    gd_param->init_learning_rate(eta0_try1 * eta0_try_factor);
     GD_try1->stat = stat;
     t = 1;
     assign_to_this(GD_try1);
@@ -776,9 +796,8 @@ try_learning_rate() {
     if (verbosity == 1) std::cout << "Done." << std::endl;
     if (verbosity >= 2) {
         if (verbosity == 2) std::cout << "Done.\n";
-        std::cout << "    Setting eta0 = " << eta0_try1 * 0.9 << "." << std::endl;
+        std::cout << "    Setting eta0 = " << eta0_try1 * eta0_try_factor << "." << std::endl;
     }
-
     delete[] sub_x_i;
     return *this;
 }
@@ -930,9 +949,16 @@ train() {
         std::cout <<  ".\nSGD Training: begin." << std::endl;
     }
     if (!this->gd_param->init_learning_rate()) this->try_learning_rate();
+    if (this->gd_param->init_learning_rate() < err) {
+        if (verbosity >= 1) {
+            std::cout << "SGD Training: finished.\n"
+                      << "    Accuracy already satisfied." << std::endl;
+        }
+        return *this;
+    }
     rand_x = new _N_DAT_T[n_sample];
-    _COMP_T obj0 = std::numeric_limits<_COMP_T>::max();
-    _COMP_T obj1;
+    // _COMP_T obj0 = std::numeric_limits<_COMP_T>::max();
+    // _COMP_T obj1;
     unsigned int i;
     if (verbosity >= 1) {
         std::cout << "Training ... ";
@@ -950,11 +976,11 @@ train() {
             else std::cout.flush();
         }
         train_epoch(dim, rand_x, s_batch, n_batch, n_remain, verbosity);
-        obj1 = this->compute_obj(this->data, dim, rand_x, n_sample, this->y);
+        // obj1 = this->compute_obj(this->data, dim, rand_x, n_sample, this->y);
         if (verbosity == 2) {
             std::cout << "Done. eta = " << this->eta;
             if (show_obj_each_iter) {
-                std::cout << ", Objective = " << obj1;
+                std::cout << ", Objective = " << this->compute_obj(this->data, dim, rand_x, n_sample, this->y);
             }
             std::cout << "." << std::endl;
         }
@@ -963,10 +989,10 @@ train() {
         if (out) {
             this->ostream_param(*out);
             *out << " ";
-            *out << obj1 << std::endl;
+            *out << /*obj1 << */std::endl;
         }
-        if (err > 0 && obj0 - obj1 < err) break;
-        obj0 = obj1;
+        // if (err > 0 && obj0 - obj1 < err) break;
+        // obj0 = obj1;
     }
 
     if (verbosity >= 1) {

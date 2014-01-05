@@ -1,6 +1,9 @@
 # ifndef _MYSOLVER_HPP
 # define _MYSOLVER_HPP
 
+# include <vector>
+# include <utility>
+
 # include "my_typedefs.h"
 # include "SGD.hpp"
 
@@ -19,6 +22,8 @@ public:
                 unsigned int _n_train          = 1,
                 unsigned int _n_iter           = 50,
                 unsigned int _n_iter_fine      = 50,
+                SUPV_T       _n_supp_p         = 1,
+                float        _supp_p_inc_rate  = 1,
                 COMP_T       _err              = 0.01,
                 bool         _show_p_each_iter = false)
                :v(_v),
@@ -27,6 +32,8 @@ public:
                 n_train(_n_train),
                 n_iter(_n_iter),
                 n_iter_fine(_n_iter_fine),
+                n_supp_p(_n_supp_p),
+                supp_p_inc_rate(_supp_p_inc_rate),
                 err(_err),
                 show_p_each_iter_(_show_p_each_iter),
                 out_training_proc(NULL) {}
@@ -42,6 +49,10 @@ public:
             { n_iter = _n_iter; return *this; }
         MyParam& num_of_fine_tuning(unsigned int _n_iter_fine)
             { n_iter_fine = _n_iter_fine; return *this; }
+        MyParam& num_of_support_ps(unsigned int _n_supp_p)
+            { n_supp_p = _n_supp_p; return *this; }
+        MyParam& support_p_incre_rate(float _supp_p_inc_rate)
+            { supp_p_inc_rate = _supp_p_inc_rate; return *this; }
         MyParam& accuracy(COMP_T _err) { err = _err; return *this; }
         MyParam& show_p_each_iter(bool _show)
             { show_p_each_iter_ = _show; return *this; }
@@ -54,6 +65,8 @@ public:
         unsigned int  num_of_trainings()            const { return n_train; }
         unsigned int  num_of_iterations()           const { return n_iter; }
         unsigned int  num_of_fine_tuning()          const { return n_iter_fine; }
+        SUPV_T        num_of_support_ps()           const { return n_supp_p; }
+        float         support_p_incre_rate()        const { return supp_p_inc_rate; }
         COMP_T        accuracy()                    const { return err; }
         bool          show_p_each_iter()            const { return show_p_each_iter_; }
         std::ostream* ostream_of_training_process() const { return out_training_proc; }
@@ -76,6 +89,8 @@ public:
         unsigned int  n_train;     ///< number of times of training
         unsigned int  n_iter;      ///< number of normal iterations
         unsigned int  n_iter_fine; ///< number of extra iterations for fine tuning
+        SUPV_T        n_supp_p;    ///< number of support "p"s
+        float         supp_p_inc_rate;
         COMP_T        err;
         bool          show_p_each_iter_;
         std::ostream* out_training_proc;
@@ -89,6 +104,8 @@ public:
              unsigned int _n_train          = 1,
              unsigned int _n_iter           = 50,
              unsigned int _n_iter_fine      = 50,
+             SUPV_T       _n_supp_p         = 1,
+             float        _supp_p_inc_rate  = 1,
              COMP_T       _err              = 0.01,
              bool         _show_p_each_iter = false);
     MySolver(GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   _gd_param,
@@ -132,6 +149,9 @@ protected:
     /// 
     /// @return     The amount of difference of "p".
     COMP_T            update_p(DAT_DIM_T d, SUPV_T n_label);
+    MySolver&         reset_support_p();
+    MySolver&         support_p();
+    SUPV_T            add_support_p(SUPV_T n_add_supp_p, SUPV_T n_label);
 
     // Inherited functions
     virtual COMP_T    compute_learning_rate(COMP_T eta0, unsigned long t);
@@ -158,7 +178,7 @@ protected:
     
 
 private:
-    /// Parameters of the training process (external/internal)
+    /// Parameters of the training process (internal/external)
     MyParam*  my_param;
     /// parameters of the hyperplane (internal)
     COMP_T*   w;
@@ -174,18 +194,21 @@ private:
     N_DAT_T*  x_neg;
     N_DAT_T   n_x_neg;
 
-    // Buffer variables for efficient training (internal)
-    COMP_T*   p_margin_pos;
-    COMP_T*   p_margin_mid;
-    COMP_T*&  p_margin_neg;
-    COMP_T*   term2;
+    // Buffer variables for efficient training
+    COMP_T*   p_margin_pos;   // (internal)
+    COMP_T*   p_margin_mid;   // (internal)
+    COMP_T*&  p_margin_neg;   // (internal)
+    COMP_T*   term_loss;      // (internal/external)
+    std::vector<std::pair<COMP_T, SUPV_T>> supp_p_max;
+    std::vector<std::pair<COMP_T, SUPV_T>> supp_p_min;
 
     MySolver& full_train(unsigned int& i,
                          unsigned int  n_iter,
                          DAT_DIM_T     dim,
                          N_DAT_T*      x,
                          N_DAT_T       n_sample,
-                         SUPV_T        n_label);
+                         SUPV_T        n_label,
+                         COMP_T        eta0);
     MySolver& fine_train(unsigned int& i,
                          unsigned int  n_iter_fine,
                          DAT_DIM_T     dim,
@@ -203,21 +226,41 @@ private:
         MySolver* some = (MySolver*)_some;
         std::memcpy(w, some->w, gd_param->dimension() * sizeof(COMP_T));
         b = some->b;
+        std::memcpy(p, some->p, stat.num_of_labels() * sizeof(COMP_T));
         return *this;
     }
 }; // Class MySolver
 
-inline COMP_T MySolver::entropy() {
-    return (COMP_T)stat.entropy();
+
+inline MySolver& MySolver::solve(N_DAT_T* _x_pos, N_DAT_T& _n_x_pos,
+                                 N_DAT_T* _x_neg, N_DAT_T& _n_x_neg) {
+    x_pos = _x_pos;
+    x_neg = _x_neg;
+    solve();
+    _n_x_pos = n_x_pos;
+    _n_x_neg = n_x_neg;
+    return *this;
 }
 
-inline COMP_T MySolver::compute_learning_rate(COMP_T eta0, unsigned long t) {
-    return eta0 / (1 + my_param->regul_coef() * eta0 * t);
+inline COMP_T MySolver::entropy() {
+    return (COMP_T)stat.entropy();
 }
 
 inline SUPV_T MySolver::test_one(COMP_T* dat_i, DAT_DIM_T d) const {
     return compute_score(dat_i, d) > 0 ? 0 : 1;
 }
 
+inline MySolver& MySolver::reset_support_p() {
+    SUPV_T n_supp_p = my_param->num_of_support_ps();
+    supp_p_max.clear();
+    supp_p_min.clear();
+    supp_p_max.reserve(n_supp_p);
+    supp_p_min.reserve(n_supp_p);
+    return *this;
+}
+
+inline COMP_T MySolver::compute_learning_rate(COMP_T eta0, unsigned long t) {
+    return eta0 / (1 + my_param->regul_coef() * eta0 * t);
+}
 
 # endif

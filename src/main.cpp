@@ -32,10 +32,10 @@ int main(int argc, const char** argv)
     MySolver::MyParam                                 my_param;
     MyTree::MyTreeParam                               my_tree_param;
 
-    // std::ofstream file("data/log.txt");
-    // gd_param.ostream_of_training_process(file);
-    // my_param.ostream_of_training_process(file);
-    // my_tree_param.ostream_of_training_result(file);
+    std::ofstream file("data/log.txt");
+    gd_param.ostream_of_training_process(file);
+    my_param.ostream_of_training_process(file);
+    my_tree_param.ostream_of_training_result(file);
 
     MyTree tree(gd_param, sgd_param, my_param, my_tree_param);
 
@@ -95,7 +95,7 @@ int main(int argc, const char** argv)
     // stat.stat(Y, 30, x);
     // std::cout << "Entropy of first 30 = " << stat.entropy() << std::endl;
 
-    // file.close();
+    file.close();
     delete[] X;
     delete[] Y;
     delete[] _Y_;

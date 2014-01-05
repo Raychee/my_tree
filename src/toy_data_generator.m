@@ -140,7 +140,7 @@ elseif strcmp(get(handles.generator, 'UserData'), 'model')
     if i > size(W, 1)
         set(handles.generator, 'UserData', 'data');
         delete(h_line);
-        set(handles.edit_intv, 'String', '1');
+        set(handles.edit_intv, 'String', '0.001');
         return;
     end
     if intv > 0
