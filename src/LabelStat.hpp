@@ -2,12 +2,14 @@
 # define _LABELSTAT_HPP
 
 # include <iostream>
+# include <fstream>
 # include <iomanip>
 # include <cstring>
 # include <cstdlib>
 # include <ctime>
 # include <cmath>
 
+# include "my_lib.hpp"
 # include "Array.hpp"
 
 /// A template class which calculates the statistics of a label set.
@@ -29,7 +31,7 @@ template<typename _SUPV_T, typename _N_DAT_T>
 class LabelStat {
 public:
     LabelStat();
-    LabelStat(_SUPV_T*  y, _N_DAT_T n, _N_DAT_T* x = NULL);
+    LabelStat(_SUPV_T* y, _N_DAT_T n, _N_DAT_T* x = NULL);
     LabelStat(LabelStat& some);
     LabelStat& operator=(LabelStat& some);
     ~LabelStat();
@@ -44,6 +46,7 @@ public:
     ///             into consideration. If NULL, then all the 
     ///             samples in "y" will be involved.
     LabelStat& stat(_SUPV_T*  y, _N_DAT_T  n, _N_DAT_T* x = NULL);
+    LabelStat& insert(_SUPV_T n_label, _SUPV_T* _label, _N_DAT_T* _n_x_of_label);
     LabelStat& clear();
     
     _SUPV_T    num_of_labels()  const { return n_label; }
@@ -79,6 +82,8 @@ public:
     double     entropy() const;
 
     LabelStat& ostream_this(std::ostream& out);
+    LabelStat& ofstream_this(std::ofstream& out);
+    LabelStat& istream_this(std::istream& in);
 
 private:
 
@@ -91,12 +96,23 @@ private:
     Array<_SUPV_T, _SUPV_T> i_label;
 };
 
-template<typename _SUPV_T, typename _N_DAT_T>
+template<typename _SUPV_T, typename _N_DAT_T> inline
 std::ostream& operator<<(std::ostream& out, LabelStat<_SUPV_T, _N_DAT_T>& st) {
     st.ostream_this(out);
     return out;
 }
 
+template<typename _SUPV_T, typename _N_DAT_T> inline
+std::ofstream& operator<<(std::ofstream& out, LabelStat<_SUPV_T, _N_DAT_T>& st) {
+    st.ofstream_this(out);
+    return out;
+}
+
+template<typename _SUPV_T, typename _N_DAT_T> inline
+std::istream& operator>>(std::istream& in, LabelStat<_SUPV_T, _N_DAT_T>& st) {
+    st.istream_this(in);
+    return in;
+}
 
 template<typename _SUPV_T, typename _N_DAT_T>
 LabelStat<_SUPV_T, _N_DAT_T>::LabelStat():
@@ -250,6 +266,25 @@ stat(_SUPV_T*  y, _N_DAT_T  n, _N_DAT_T* x) {
     return *this;
 }
 
+template<typename _SUPV_T, typename _N_DAT_T> inline
+LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
+insert(_SUPV_T _n_label, _SUPV_T* _label, _N_DAT_T* _n_x_of_label) {
+    clear();
+    n_label      = _n_label;
+    label_       = _label;
+    n_x_of_label = _n_x_of_label;
+    _SUPV_T max_label = 0;
+    for (_SUPV_T i = 0; i < n_label; ++i) {
+        n_sample += n_x_of_label[i];
+        if (label_[i] > max_label) max_label = label_[i];
+    }
+    _SUPV_T* max_i_label = new _SUPV_T[max_label];
+    for (_SUPV_T i = 0; i < n_label; ++i) {
+        max_i_label[label_[i] - 1] = i;
+    }
+    i_label.insert(max_i_label, max_label);
+}
+
 template<typename _SUPV_T, typename _N_DAT_T>
 LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
 ostream_this(std::ostream& out) {
@@ -270,16 +305,49 @@ ostream_this(std::ostream& out) {
     return *this;
 }
 
+template<typename _SUPV_T, typename _N_DAT_T>
+LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
+ofstream_this(std::ofstream& out) {
+    out << n_label << "    # number of labels\n";
+    for (_SUPV_T i = 0; i < n_label; ++i) {
+        out << label_[i] << " " << n_x_of_label[i]
+            << "    # label | number of samples\n";
+    }
+    return *this;
+}
+
+template<typename _SUPV_T, typename _N_DAT_T>
+LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
+istream_this(std::istream& in) {
+    clear();
+    char line_str[1024];
+    in.getline(line_str, 1024);
+    n_label = strto<_SUPV_T>(line_str);
+    label_ = new _SUPV_T[n_label];
+    n_x_of_label = new _N_DAT_T[n_label];
+    alloc = true;
+    for (_SUPV_T i = 0; i < n_label; ++i) {
+        in.getline(line_str, 1024);
+        char* delimit;
+        label_[i] = strto<_SUPV_T>(line_str, delimit);
+        n_x_of_label[i] = strto<_N_DAT_T>(delimit);
+        n_sample += n_x_of_label[i];
+    }
+    return *this;
+}
+
 template<typename _SUPV_T, typename _N_DAT_T> inline
 LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
 clear() {
     if (alloc) {
         delete[] label_;
         delete[] n_x_of_label;
-        for (_SUPV_T i = 0; i < n_label; ++i) {
-            delete[] x_of_label[i];
+        if (x_of_label) {
+            for (_SUPV_T i = 0; i < n_label; ++i) {
+                delete[] x_of_label[i];
+            }
+            delete[] x_of_label;
         }
-        delete[] x_of_label;
         alloc = false;
     }
     n_label      = 0;
@@ -287,6 +355,7 @@ clear() {
     label_       = NULL;
     n_x_of_label = NULL;
     x_of_label   = NULL;
+    i_label.clear();
     return *this;
 }
 
@@ -322,7 +391,7 @@ rand_index(_SUPV_T k, _N_DAT_T m) {
 template<typename _SUPV_T, typename _N_DAT_T>
 LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
 rand_index(_N_DAT_T* x, _N_DAT_T n) {
-    if (!n) n = n_sample;
+    if (!n || n > n_sample) n = n_sample;
     _N_DAT_T* n_subsample_of_label = new _N_DAT_T[n_label];
     _N_DAT_T max_n_x_of_label = 0;
     for (_SUPV_T i = 0; i < n_label; ++i) {

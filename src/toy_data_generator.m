@@ -162,7 +162,7 @@ elseif strcmp(get(handles.generator, 'UserData'), 'model')
                 x_pos_margin = 0 : 1;
                 y_pos_margin = (1 - b - w1 .* x_pos_margin) ./ w2;
             end
-            fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
+            fprintf('line %d: (%g, %g) -- (%g, %g)\n', h, x(1), y(1), x(2), y(2));
             new_h_line(1) = line(x, y);
             new_h_line(2) = line(x_neg_margin, y_neg_margin);
             new_h_line(3) = line(x_pos_margin, y_pos_margin);
@@ -190,7 +190,7 @@ elseif strcmp(get(handles.generator, 'UserData'), 'model')
             x_pos_margin = 0 : 1;
             y_pos_margin = (1 - b - w1 .* x_pos_margin) ./ w2;
         end
-        fprintf('line: (%g, %g) -- (%g, %g)\n', x(1), y(1), x(2), y(2));
+        fprintf('line %d: (%g, %g) -- (%g, %g)\n', i, x(1), y(1), x(2), y(2));
         new_h_line(1) = line(x, y);
         new_h_line(2) = line(x_neg_margin, y_neg_margin);
         new_h_line(3) = line(x_pos_margin, y_pos_margin);

@@ -4,7 +4,6 @@
 # include <iostream>
 # include <cstring>
 # include <limits>
-// # include <forward_list>
 
 # include "LabelStat.hpp"
 
@@ -104,21 +103,12 @@ public:
         std::ostream* out_training_proc;
     };
 
-    GD(_DAT_DIM_T   _dimension            = 0,
-       char         _verbosity            = 1,
-       _COMP_T      _eta0                 = 0,
-       unsigned int _n_iter               = 200,
-       _COMP_T      _err                  = 1e-8,
-       _N_DAT_T     _min_n_subsample      = 0,
-       float        _eta0_try_sample_rate = 0.3,
-       _COMP_T      _eta0_try_1st         = 0.1,
-       _COMP_T      _eta0_try_factor      = 3,
-       bool         _show_obj_each_iter   = false);
+    GD();
     GD(GDParam& _gd_param);
-    GD(GD& some);
-    GD& operator=(GD& some);
-    virtual ~GD();
+    virtual ~GD() {}
 
+    GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
+    set_param(GDParam& _gd_param);
     /// Feed the training data into the solver.
     /// 
     /// @param[in] _data The matrix that holds all the training data.
@@ -165,6 +155,10 @@ public:
     /// Output the SGD solver to a standard ostream.
     virtual GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
     ostream_this(std::ostream& out);
+    virtual GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
+    ofstream_this(std::ofstream& out) { return ostream_this(out); }
+    virtual GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
+    istream_this(std::istream& in) { return *this; }
 
     /// Output all the training parameters to a standard ostream.
     virtual GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
@@ -220,9 +214,6 @@ protected:
                                 _SUPV_T*   _y) = 0;
 
 private:
-    /// Mark whether the param structure that "gd_param" points to is allocated 
-    /// by the constructor during a GD object creation.
-    bool alloc_gd_param;
     /// Create and return a temporary duplicate of the current GD solver. Used 
     /// in try_learning_rate().
     virtual GD* duplicate_this() = 0;
@@ -271,27 +262,17 @@ public:
         unsigned int  n_epoch;       ///< number of epoches
     };//class SGDParam
 
-    SGD(_DAT_DIM_T   _dimension            = 0,
-        char         _verbosity            = 1,
-        _COMP_T      _eta0                 = 0,
-        _N_DAT_T     _s_batch              = 1,
-        unsigned int _n_epoch              = 200,
-        unsigned int _n_iter               = 200,
-        _COMP_T      _err                  = 0,
-        _N_DAT_T     _min_n_subsample      = 0,
-        float        _eta0_try_sample_rate = 0.3,
-        _COMP_T      _eta0_try_1st         = 0.1,
-        _COMP_T      _eta0_try_factor      = 3,
-        bool         _show_obj_each_iter   = false);
-    SGD(typename GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::GDParam& _gd_param,
-        _N_DAT_T     _s_batch = 1,
-        unsigned int _n_epoch = 200);
+    SGD(): sgd_param(NULL) {}
     SGD(typename GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::GDParam& _gd_param,
         SGDParam& _sgd_param);
-    SGD(SGD& some);
-    SGD& operator=(SGD& some);
-    virtual ~SGD();
+    virtual ~SGD() {};
 
+    using GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::set_param;
+    SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
+    set_param(SGDParam& _sgd_param);
+    SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
+    set_param(typename GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::GDParam& _gd_param,
+              SGDParam& _sgd_param);
     /// Train the parameters with ALL the "n" input data of dimension "dim" and 
     /// the corresponding supervising data "y". 
     /// 
@@ -326,9 +307,6 @@ protected:
                 char _v);
 
 private:
-    /// Mark whether the param structure that "sgd_param" points to is allocated 
-    /// by the constructor during a SGD object creation.
-    bool alloc_sgd_param;
 };
 
 /// A wrapper of function ostream_this(): operator << overload for convenience.
@@ -343,6 +321,30 @@ inline std::ostream& operator<<(std::ostream& out,
                                    _N_DAT_T>& gd) {
     gd.ostream_this(out);
     return out;
+}
+template <typename _COMP_T,
+          typename _SUPV_T,
+          typename _DAT_DIM_T,
+          typename _N_DAT_T>
+inline std::ofstream& operator<<(std::ofstream& out,
+                                GD<_COMP_T,
+                                   _SUPV_T,
+                                   _DAT_DIM_T,
+                                   _N_DAT_T>& gd) {
+    gd.ofstream_this(out);
+    return out;
+}
+template <typename _COMP_T,
+          typename _SUPV_T,
+          typename _DAT_DIM_T,
+          typename _N_DAT_T>
+inline std::istream& operator>>(std::istream& in,
+                                GD<_COMP_T,
+                                   _SUPV_T,
+                                   _DAT_DIM_T,
+                                   _N_DAT_T>& gd) {
+    gd.istream_this(in);
+    return in;
 }
 
 
@@ -406,32 +408,12 @@ template <typename _COMP_T,
           typename _DAT_DIM_T,
           typename _N_DAT_T>
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-GD(_DAT_DIM_T   _dimension,
-   char         _verbosity,
-   _COMP_T      _eta0,
-   unsigned int _n_iter,
-   _COMP_T      _err,
-   _N_DAT_T     _min_n_subsample,
-   float        _eta0_try_sample_rate,
-   _COMP_T      _eta0_try_1st,
-   _COMP_T      _eta0_try_factor,
-   bool         _show_obj_each_iter)
-  :data(NULL),
-   n(0),
-   y(NULL),
-   t(0),
-   eta(_eta0),
-   alloc_gd_param(true) {
-    gd_param = new GDParam(_dimension,
-                           _verbosity,
-                           _eta0,
-                           _n_iter,
-                           _err,
-                           _min_n_subsample,
-                           _eta0_try_sample_rate,
-                           _eta0_try_1st,
-                           _eta0_try_factor,
-                           _show_obj_each_iter);
+GD(): data(NULL),
+      n(0),
+      y(NULL),
+      gd_param(NULL),
+      t(0),
+      eta(0) {
 }
 
 template <typename _COMP_T,
@@ -444,55 +426,36 @@ GD(GDParam& _gd_param)
    n(0),
    y(NULL),
    gd_param(&_gd_param),
-   t(0),
-   alloc_gd_param(false) {
+   t(0) {
     eta = gd_param->init_learning_rate();
 }
 
-template <typename _COMP_T,
-          typename _SUPV_T,
-          typename _DAT_DIM_T,
-          typename _N_DAT_T>
-GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-GD(GD& some)
-  :data(some.data),
-   n(some.n),
-   y(some.y),
-   stat(some.stat),
-   gd_param(some.gd_param),
-   t(some.t),
-   eta(some.eta),
-   alloc_gd_param(false) {
-}
+// template <typename _COMP_T,
+//           typename _SUPV_T,
+//           typename _DAT_DIM_T,
+//           typename _N_DAT_T>
+// GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
+// GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
+// operator=(GD& some) {
+//     data     = some.data;
+//     n        = some.n;
+//     y        = some.y;
+//     stat     = some.stat;
+//     gd_param = some.gd_param;
+//     t        = some.t;
+//     eta      = some.eta;
+//     return *this;
+// }
 
 template <typename _COMP_T,
           typename _SUPV_T,
           typename _DAT_DIM_T,
-          typename _N_DAT_T>
+          typename _N_DAT_T> inline
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-operator=(GD& some) {
-    if (alloc_gd_param && gd_param != some.gd_param) {
-        delete gd_param;
-        alloc_gd_param = false;
-    }
-    data           = some.data;
-    n              = some.n;
-    y              = some.y;
-    stat           = some.stat;
-    gd_param       = some.gd_param;
-    t              = some.t;
-    eta            = some.eta;
+set_param(GDParam& _gd_param) {
+    gd_param = &_gd_param;
     return *this;
-}
-
-template <typename _COMP_T,
-          typename _SUPV_T,
-          typename _DAT_DIM_T,
-          typename _N_DAT_T>
-GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-~GD() {
-    if (alloc_gd_param) delete gd_param;
 }
 
 template <typename _COMP_T,
@@ -551,6 +514,11 @@ template <typename _COMP_T,
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 train() {
+    if (!gd_param) {
+        std::cerr << "WARNING: GD: Parameters have not been specified. "
+                  << "Training process is skipped." << std::endl;
+        return *this;
+    }
     _DAT_DIM_T   dim                = gd_param->dimension();
     char         verbosity          = gd_param->verbosity();
     unsigned int n_iter             = gd_param->num_of_iterations();
@@ -701,8 +669,9 @@ template <typename _COMP_T,
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 try_learning_rate() {
-    _DAT_DIM_T dim = gd_param->dimension();
-    _COMP_T    err = gd_param->accuracy();
+    _DAT_DIM_T dim      = gd_param->dimension();
+    _COMP_T    err      = gd_param->accuracy();
+    _N_DAT_T   n_sample = stat.num_of_samples();
     if (!dim) {
         std::cerr << "WARNING: SGD: Dimensionality has not been specified. "
                   << "Training process is skipped." << std::endl;
@@ -722,9 +691,10 @@ try_learning_rate() {
         std::cout.flush();
     }
 
-    _N_DAT_T n_subsample = gd_param->learning_rate_sample_rate() * stat.num_of_samples();
+    _N_DAT_T n_subsample = gd_param->learning_rate_sample_rate() * n_sample;
     if (n_subsample < gd_param->min_num_of_subsamples())
         n_subsample = gd_param->min_num_of_subsamples();
+    if (n_subsample > n_sample) n_subsample = n_sample;
     _N_DAT_T* sub_x_i = new _N_DAT_T[n_subsample];
     stat.rand_index(sub_x_i, n_subsample);
 
@@ -816,8 +786,8 @@ SGDParam::SGDParam(_N_DAT_T     _s_batch,
 template <typename _COMP_T,
           typename _SUPV_T,
           typename _DAT_DIM_T,
-          typename _N_DAT_T>
-inline typename SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::SGDParam&
+          typename _N_DAT_T> inline typename 
+SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::SGDParam&
 SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::SGDParam::
 ostream_this(std::ostream& out) {
     out << "Stochastic Gradient Descent parameters:\n"
@@ -826,49 +796,6 @@ ostream_this(std::ostream& out) {
     return *this;
 }
 
-template <typename _COMP_T,
-          typename _SUPV_T,
-          typename _DAT_DIM_T,
-          typename _N_DAT_T>
-SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-SGD(_DAT_DIM_T   _dimension,
-    char         _verbosity,
-    _COMP_T      _eta0,
-    _N_DAT_T     _s_batch,
-    unsigned int _n_epoch,
-    unsigned int _n_iter,
-    _COMP_T      _err,
-    _N_DAT_T     _min_n_subsample,
-    float        _eta0_try_sample_rate,
-    _COMP_T      _eta0_try_1st,
-    _COMP_T      _eta0_try_factor,
-    bool         _show_obj_each_iter)
-   :GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>(_dimension,
-                                               _verbosity,
-                                               _eta0,
-                                               _n_iter,
-                                               _err,
-                                               _min_n_subsample,
-                                               _eta0_try_sample_rate,
-                                               _eta0_try_1st,
-                                               _eta0_try_factor,
-                                               _show_obj_each_iter),
-    alloc_sgd_param(true) {
-    sgd_param = new SGDParam(_s_batch,_n_epoch);
-}
-
-template <typename _COMP_T,
-          typename _SUPV_T,
-          typename _DAT_DIM_T,
-          typename _N_DAT_T>
-SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-SGD(typename GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::GDParam& _gd_param,
-    _N_DAT_T     _s_batch,
-    unsigned int _n_epoch)
-   :GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>(_gd_param),
-    alloc_sgd_param(true) {
-    sgd_param = new SGDParam(_s_batch,_n_epoch);
-}
 
 template <typename _COMP_T,
           typename _SUPV_T,
@@ -878,34 +805,52 @@ SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 SGD(typename GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::GDParam& _gd_param,
     SGDParam& _sgd_param)
    :GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>(_gd_param),
-    sgd_param(&_sgd_param),
-    alloc_sgd_param(false) {
+    sgd_param(&_sgd_param) {
 }
+
+// template <typename _COMP_T,
+//           typename _SUPV_T,
+//           typename _DAT_DIM_T,
+//           typename _N_DAT_T>
+// SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
+// SGD(SGD& some)
+//    :GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>(some),
+//     sgd_param(some.sgd_param) {
+// }
+
+// template <typename _COMP_T,
+//           typename _SUPV_T,
+//           typename _DAT_DIM_T,
+//           typename _N_DAT_T>
+// SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
+// SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
+// operator=(SGD& some) {
+//     GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::operator=(some);
+//     if (alloc_sgd_param && sgd_param != some.sgd_param) {
+//         delete sgd_param;
+//         alloc_sgd_param = false;
+//     }
+//     sgd_param = some.sgd_param;
+//     return *this;
+// }
+
+// template <typename _COMP_T,
+//           typename _SUPV_T,
+//           typename _DAT_DIM_T,
+//           typename _N_DAT_T>
+// SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
+// ~SGD() {
+//     if (alloc_sgd_param) delete sgd_param;
+// }
 
 template <typename _COMP_T,
           typename _SUPV_T,
           typename _DAT_DIM_T,
           typename _N_DAT_T>
+SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
 SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-SGD(SGD& some)
-   :GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>(some),
-    sgd_param(some.sgd_param),
-    alloc_sgd_param(false) {
-}
-
-template <typename _COMP_T,
-          typename _SUPV_T,
-          typename _DAT_DIM_T,
-          typename _N_DAT_T>
-SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
-SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-operator=(SGD& some) {
-    GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::operator=(some);
-    if (alloc_sgd_param && sgd_param != some.sgd_param) {
-        delete sgd_param;
-        alloc_sgd_param = false;
-    }
-    sgd_param = some.sgd_param;
+set_param(SGDParam& _sgd_param) {
+    sgd_param = &_sgd_param;
     return *this;
 }
 
@@ -913,9 +858,13 @@ template <typename _COMP_T,
           typename _SUPV_T,
           typename _DAT_DIM_T,
           typename _N_DAT_T>
+SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
 SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-~SGD() {
-    if (alloc_sgd_param) delete sgd_param;
+set_param(typename GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::GDParam& _gd_param,
+          SGDParam& _sgd_param) {
+    set_param(_gd_param);
+    sgd_param = &_sgd_param;
+    return *this;
 }
 
 template <typename _COMP_T,
@@ -925,6 +874,11 @@ template <typename _COMP_T,
 SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
 SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 train() {
+    if (!this->gd_param || !sgd_param) {
+        std::cerr << "WARNING: SGD: Parameters have not been specified. "
+                  << "Training process is skipped." << std::endl;
+        return *this;
+    }
     _DAT_DIM_T   dim                = this->gd_param->dimension();
     char         verbosity          = this->gd_param->verbosity();
     _COMP_T      err                = this->gd_param->accuracy();

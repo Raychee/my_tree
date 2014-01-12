@@ -2,7 +2,11 @@
 # define _TREE_HPP
 
 # include <iostream>
+# include <fstream>
+# include <iomanip>
+# include <cstring>
 # include <queue>
+# include "my_lib.hpp"
 
 /// A basic tree structure.
 /// 
@@ -15,6 +19,8 @@ public:
     virtual ~Tree();
 
     virtual Tree& ostream_this(std::ostream& out);
+    virtual Tree& save_this(const char* dir);
+    virtual Tree& read_this(const char* dir);
 
 protected:
     /// A basic tree node structure.
@@ -110,8 +116,8 @@ Tree<_DATA>::~Tree() {
 }
 
 template<class _DATA>
-Tree<_DATA>&
-Tree<_DATA>::ostream_this(std::ostream& out) {
+Tree<_DATA>& Tree<_DATA>::
+ostream_this(std::ostream& out) {
     out << "********************************";
     iterator it_end = end();
     for (iterator i = begin(); i != it_end; ++i) {
@@ -124,6 +130,144 @@ Tree<_DATA>::ostream_this(std::ostream& out) {
             out << " " << i->pchild(j);
         }
         out << "\n****************";
+    }
+    return *this;
+}
+
+template<class _DATA>
+Tree<_DATA>& Tree<_DATA>::
+save_this(const char* dir) {
+    char path[1024], * filename;
+    std::strcpy(path, dir);
+    std::size_t dir_len = std::strlen(path);
+    std::size_t file_len;
+    if (dir_len > 0 && (path[dir_len - 1] != '/' && path[dir_len - 1] != '\\'))
+        path[dir_len++] = '/';
+    filename = path + dir_len;
+    file_len = 1024 - dir_len;
+    std::strcpy(filename, "Tree");
+    std::ofstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "\nFailed opening file: " << path << std::endl;
+        return *this;
+    }
+    SUPV_T node_num = 0;
+    file << std::setw(16) << std::setfill('0') << node_num << ".node"
+         << "    # root" << std::endl;
+    file.close();
+    std::queue<TreeNode*> node_pointer;
+    std::queue<SUPV_T>    node_name;
+    std::queue<SUPV_T>    node_parent_name;
+    node_pointer.push(root);
+    node_name.push(node_num);
+    node_parent_name.push(0);
+    while (!node_pointer.empty()) {
+        TreeNode* node        = node_pointer.front();
+        SUPV_T    name        = node_name.front();
+        SUPV_T    parent_name = node_parent_name.front();
+        std::snprintf(filename, file_len, "%016d.node", name);
+        file.open(path);
+        if (!file.is_open()) {
+            std::cerr << "\nFailed opening file: " << path << std::endl;
+            return *this;
+        }
+        file << std::setw(16) << std::setfill('0') << parent_name
+             << ".node    # parent\n";
+        unsigned int n_child = node->num_of_children();
+        file << n_child << "    # number of children\n";
+        if (n_child) {
+            TreeNode** child = node->children();
+            for (unsigned int i = 0; i < n_child; ++i) {
+                node_pointer.push(child[i]);
+                node_name.push(++node_num);
+                node_parent_name.push(name);
+                file << std::setw(16) << std::setfill('0') << node_num
+                     << ".node    # child " << i + 1 << "\n";
+            }
+        }
+        file << node->content();
+        file.close();
+        node_pointer.pop();
+        node_name.pop();
+        node_parent_name.pop();
+    }
+    return *this;
+}
+
+template<class _DATA>
+Tree<_DATA>& Tree<_DATA>::
+read_this(const char* dir) {
+    char path[1024], * filename, line_str[1024], * filename_str;
+    std::strcpy(path, dir);
+    std::size_t dir_len = std::strlen(path);
+    std::size_t file_len;
+    if (dir_len > 0 && (path[dir_len - 1] != '/' && path[dir_len - 1] != '\\'))
+        path[dir_len++] = '/';
+    filename = path + dir_len;
+    file_len = 1024 - dir_len;
+    std::strcpy(filename, "Tree");
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "\nFailed opening file: " << path << std::endl;
+        return *this;
+    }
+    while(file.getline(line_str, 4096) && !line_str[0]);
+    if (!line_str[0]) {
+        std::cerr << "\nFailed finding file for root." << std::endl;
+        return *this;
+    }
+    file.close();
+    filename_str = strtostr(line_str);
+    std::strcpy(filename, filename_str);
+    file.open(path);
+    if (!file.is_open()) {
+        std::cerr << "\nFailed opening file: " << path << std::endl;
+        return *this;
+    }
+    SUPV_T node_num;
+    _DATA* data;
+    std::queue<SUPV_T>    node_name;
+    std::queue<TreeNode*> node_parent_pointer;
+    file.getline(line_str, 4096);
+    file.getline(line_str, 4096);
+    unsigned int n_child = strto<unsigned int>(line_str);
+    root = new TreeNode(NULL, NULL, n_child);
+    for (unsigned int i = 0; i < n_child; ++i) {
+        file.getline(line_str, 4096);
+        node_num = strto<SUPV_T>(line_str);
+        node_name.push(node_num);
+        node_parent_pointer.push(root);
+    }
+    data = new _DATA();
+    file >> *data;
+    file.close();
+    root->pcontent(data);
+    while (!node_name.empty()) {
+        SUPV_T    name   = node_name.front();
+        TreeNode* parent = node_parent_pointer.front();
+        std::snprintf(filename, file_len, "%016d.node", name);
+        file.open(path);
+        if (!file.is_open()) {
+            std::cerr << "\nFailed opening file: " << path << std::endl;
+            return *this;
+        }
+        file.getline(line_str, 4096);
+        file.getline(line_str, 4096);
+        unsigned int n_child = strto<unsigned int>(line_str);
+        TreeNode* node = new TreeNode(NULL, parent, n_child);
+        parent->attach_child(node);
+        for (unsigned int i = 0; i < n_child; ++i) {
+            file.getline(line_str, 4096);
+            node_num = strto<SUPV_T>(line_str);
+            node_name.push(node_num);
+            node_parent_pointer.push(node);
+        }
+        data = new _DATA();
+        file >> *data;
+        file.close();
+        node->pcontent(data);
+        node_name.pop();
+        node_parent_pointer.pop();
     }
     return *this;
 }

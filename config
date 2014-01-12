@@ -1,0 +1,31 @@
+GD_verbosity                                = 0
+GD_initial_learning_rate 					= 1
+GD_num_of_iterations                        = 200
+GD_accuracy                                 = 1e-8
+GD_min_num_of_subsamples                    = 600
+GD_initial_learning_rate_try_subsample_rate = 0.5
+GD_initial_learning_rate_1st_try            = 1
+GD_initial_learning_rate_try_factor         = 2
+GD_show_objective_each_iteration            = true
+
+SGD_size_of_batches = 500
+SGD_num_of_epoches  = 500
+
+SOLVER_verbosity                     = 3
+SOLVER_regularization_strength       = 1e-3
+SOLVER_num_of_trials                 = 10
+SOLVER_num_of_trainings              = 1
+SOLVER_num_of_iterations             = 15
+SOLVER_num_of_fine_tuning_iterations = 0
+SOLVER_supporting_p_ratio 	         = 0.4
+SOLVER_initial_supporting_p_ratio    = 0.2
+SOLVER_interval_of_adding_support_ps = 0
+SOLVER_num_of_adding_supporting_ps   = 0
+SOLVER_bias_learning_rate_factor     = 0.01
+SOLVER_accuracy                      = 0.01
+SOLVER_regularized_bias              = false
+SOLVER_show_ps_each_iteration        = true
+
+TREE_verbosity   = 2
+TREE_min_entropy = 6
+TREE_max_depth   = 10

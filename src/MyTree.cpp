@@ -1,67 +1,11 @@
 # include <iostream>
+# include <fstream>
+# include <sstream>
 # include <iomanip>
+# include <cstring>
+# include <cstdio>
 # include "MyTree.hpp"
 
-
-MyTree::MyTree(char         _verbosity,
-               DAT_DIM_T    _dimension,
-               COMP_T       _min_entropy,
-               SUPV_T       _max_depth,
-               COMP_T       _lambda,
-               unsigned int _n_iter,
-               unsigned int _n_iter_fine,
-               COMP_T       _err,
-               bool         _show_p_each_iter,
-               COMP_T       _eta0,
-               N_DAT_T      _s_batch,
-               unsigned int _n_epoch,
-               N_DAT_T      _min_n_subsample,
-               float        _eta0_try_sample_rate,
-               COMP_T       _eta0_try_1st,
-               COMP_T       _eta0_try_factor,
-               bool         _show_obj_each_iter):
-        alloc(true) {
-    gd_param      = new GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::
-                        GDParam(_dimension,
-                                _verbosity - 1,
-                                _eta0,
-                                200,
-                                1e-8,
-                                _min_n_subsample,
-                                _eta0_try_sample_rate,
-                                _eta0_try_1st,
-                                _eta0_try_factor,
-                                _show_obj_each_iter);
-    sgd_param     = new SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::
-                        SGDParam(_s_batch, _n_epoch);
-    my_param      = new MySolver::MyParam(_verbosity,
-                                          _lambda,
-                                          _n_iter,
-                                          _n_iter_fine,
-                                          _err,
-                                          _show_p_each_iter);
-    my_tree_param = new MyTreeParam(_min_entropy, _max_depth);
-}
-
-MyTree::MyTree(GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   _gd_param,
-               SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam& _sgd_param,
-               MySolver::MyParam&                                 _my_param,
-               MyTreeParam&                                       _my_tree_param):
-        gd_param(&_gd_param),
-        sgd_param(&_sgd_param),
-        my_param(&_my_param),
-        my_tree_param(&_my_tree_param),
-        alloc(false) {
-}
-
-MyTree::~MyTree() {
-    if (alloc) {
-        delete gd_param;
-        delete sgd_param;
-        delete my_param;
-        delete my_tree_param;
-    }
-}
 
 MyTree& MyTree::train(COMP_T* data, N_DAT_T n, SUPV_T* y,
                       N_DAT_T* x, N_DAT_T s_x) {
