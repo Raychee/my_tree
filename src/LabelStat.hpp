@@ -65,7 +65,7 @@ public:
     _N_DAT_T*  operator[](_SUPV_T k) { return x_of_label[k]; }
     /// Output all the indexes to the array "x". "x" must be at least "n_sample" 
     /// in size.
-    LabelStat& index_of_samples(_N_DAT_T* x);
+    _N_DAT_T*  index_of_samples();
     /// Shuffle the indexes of the samples with the kth label.
     /// 
     /// @param[in]  k   the kth label.
@@ -88,6 +88,7 @@ public:
 private:
 
     bool       alloc;           ///< whether this has allocated some memory
+    _N_DAT_T*  x_sample;
     _SUPV_T    n_label;
     _N_DAT_T   n_sample;
     _SUPV_T*   label_;
@@ -117,6 +118,7 @@ std::istream& operator>>(std::istream& in, LabelStat<_SUPV_T, _N_DAT_T>& st) {
 template<typename _SUPV_T, typename _N_DAT_T>
 LabelStat<_SUPV_T, _N_DAT_T>::LabelStat():
                               alloc(false),
+                              x_sample(NULL),
                               n_label(0),
                               n_sample(0),
                               label_(NULL),
@@ -130,6 +132,7 @@ LabelStat<_SUPV_T, _N_DAT_T>::LabelStat(_SUPV_T*  y,
                                         _N_DAT_T  n,
                                         _N_DAT_T* x):
                               alloc(false),
+                              x_sample(NULL),
                               n_label(0),
                               n_sample(0),
                               label_(NULL),
@@ -142,6 +145,7 @@ LabelStat<_SUPV_T, _N_DAT_T>::LabelStat(_SUPV_T*  y,
 template<typename _SUPV_T, typename _N_DAT_T>
 LabelStat<_SUPV_T, _N_DAT_T>::LabelStat(LabelStat& some):
                               alloc(false),
+                              x_sample(some.x_sample),
                               n_label(some.n_label),
                               n_sample(some.n_sample),
                               label_(some.label_),
@@ -158,7 +162,8 @@ LabelStat<_SUPV_T, _N_DAT_T>::~LabelStat() {
 template<typename _SUPV_T, typename _N_DAT_T> inline
 LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
 operator=(LabelStat& some) {
-    if (alloc && label_ != some.label_) clear();
+    if (alloc && x_sample != some.x_sample) clear();
+    x_sample     = some.x_sample;
     n_label      = some.n_label;
     n_sample     = some.n_sample;
     label_       = some.label_;
@@ -283,6 +288,7 @@ insert(_SUPV_T _n_label, _SUPV_T* _label, _N_DAT_T* _n_x_of_label) {
         max_i_label[label_[i] - 1] = i;
     }
     i_label.insert(max_i_label, max_label);
+    return *this;
 }
 
 template<typename _SUPV_T, typename _N_DAT_T>
@@ -295,12 +301,12 @@ ostream_this(std::ostream& out) {
     }
     for (_SUPV_T i = 0; i < n_label; ++i) {
         _N_DAT_T  n_x_label = n_x_of_label[i];
-        _N_DAT_T* x_label   = x_of_label[i];
+        // _N_DAT_T* x_label   = x_of_label[i];
         out << "\n    Label " << std::setw(4) << label_[i]
-            << " has " << std::setw(4) << n_x_label << " samples: ";
-        for (_N_DAT_T j = 0; j < n_x_label; ++j) {
-            out << std::setw(4) << x_label[j];
-        }
+            << " has " << std::setw(4) << n_x_label << " samples. ";
+        // for (_N_DAT_T j = 0; j < n_x_label; ++j) {
+        //     out << std::setw(4) << x_label[j];
+        // }
     }
     return *this;
 }
@@ -340,6 +346,7 @@ template<typename _SUPV_T, typename _N_DAT_T> inline
 LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
 clear() {
     if (alloc) {
+        delete[] x_sample;
         delete[] label_;
         delete[] n_x_of_label;
         if (x_of_label) {
@@ -350,6 +357,7 @@ clear() {
         }
         alloc = false;
     }
+    x_sample     = NULL;
     n_label      = 0;
     n_sample     = 0;
     label_       = NULL;
@@ -360,17 +368,20 @@ clear() {
 }
 
 template<typename _SUPV_T, typename _N_DAT_T>
-LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
-index_of_samples(_N_DAT_T* x) {
-    _N_DAT_T count = 0;
-    for (_SUPV_T i = 0; i < n_label; ++i) {
-        _N_DAT_T  n_x_label = n_x_of_label[i];
-        _N_DAT_T* x_label   = x_of_label[i];
-        for (_N_DAT_T i = 0; i < n_x_label; ++i) {
-            x[count++] = x_label[i];
+_N_DAT_T* LabelStat<_SUPV_T, _N_DAT_T>::
+index_of_samples() {
+    if (!x_sample) {
+        x_sample = new _N_DAT_T[n_sample];
+        _N_DAT_T count = 0;
+        for (_SUPV_T i = 0; i < n_label; ++i) {
+            _N_DAT_T  n_x_label = n_x_of_label[i];
+            _N_DAT_T* x_label   = x_of_label[i];
+            for (_N_DAT_T i = 0; i < n_x_label; ++i) {
+                x_sample[count++] = x_label[i];
+            }
         }
     }
-    return *this;
+    return x_sample;
 }
 
 template<typename _SUPV_T, typename _N_DAT_T>

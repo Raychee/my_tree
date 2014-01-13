@@ -10,12 +10,14 @@ class MyTree : public Tree<MySolver> {
 public:
     class MyTreeParam {
     public:
-        MyTreeParam(char   _v           = 1,
-                    COMP_T _min_entropy = 0.1,
-                    SUPV_T _max_depth   = 0)
+        MyTreeParam(char    _v            = 1,
+                    COMP_T  _min_entropy  = 0.1,
+                    SUPV_T  _max_depth    = 0, 
+                    N_DAT_T _min_n_sample = 1)
                    :v(_v),
                     min_entropy_(_min_entropy),
                     max_depth_(_max_depth),
+                    min_n_sample(_min_n_sample),
                     out_training_result(NULL) {}
         ~MyTreeParam() {}
 
@@ -25,12 +27,15 @@ public:
             { min_entropy_ = _min_entropy; return *this; }
         MyTreeParam& max_depth(SUPV_T _max_depth)
             { max_depth_ = _max_depth; return *this; }
+        MyTreeParam& min_num_of_samples(N_DAT_T _min_n_sample)
+            { min_n_sample = _min_n_sample; return *this; }
         MyTreeParam& ostream_of_training_result(std::ostream& _out)
             { out_training_result = &_out; return *this; }
 
-        char    verbosity()   const { return v; }
-        COMP_T  min_entropy() const { return min_entropy_; }
-        SUPV_T  max_depth()   const { return max_depth_; }
+        char    verbosity()          const { return v; }
+        COMP_T  min_entropy()        const { return min_entropy_; }
+        SUPV_T  max_depth()          const { return max_depth_; }
+        N_DAT_T min_num_of_samples() const { return min_n_sample; }
         std::ostream* ostream_of_training_result() const
             { return out_training_result; }
 
@@ -38,6 +43,7 @@ public:
         char          v;
         COMP_T        min_entropy_;
         SUPV_T        max_depth_;
+        N_DAT_T       min_n_sample;
         std::ostream* out_training_result;
     };
 

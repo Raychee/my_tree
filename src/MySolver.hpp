@@ -123,7 +123,7 @@ public:
              SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam& _sgd_param,
              MyParam&  _my_param);
     MySolver(MySolver& some);
-    virtual ~MySolver();
+    virtual ~MySolver() { clear(); }
 
     // Inherited functions
     virtual MySolver& ostream_this(std::ostream& out);
@@ -136,6 +136,8 @@ public:
     MySolver&         set_param(GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   _gd_param,
                                 SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam& _sgd_param,
                                 MyParam&                                           _my_param);
+    MySolver&         clear();
+    bool              isclear();
     /// The general solver of the class MySolver.
     /// 
     /// According to the training data "dat", "n", and "y", train the parameters 
@@ -155,6 +157,7 @@ public:
     N_DAT_T           num_of_samples() const { return stat.num_of_samples(); }
     LabelStat<SUPV_T, N_DAT_T>& 
                       distribution() { return stat; }
+    bool              fail() { return !n_x_pos || !n_x_neg; }
 
     /// Test one sample to judge whether the sample lies in the positive side or 
     /// negative side of the hyperplane "w'x+b=0".
@@ -175,25 +178,20 @@ protected:
     virtual COMP_T    compute_learning_rate(COMP_T eta0, unsigned long t);
     virtual MySolver& train_batch(COMP_T*   data,
                                   DAT_DIM_T d,
-                                  N_DAT_T   n,
-                                  SUPV_T*   y,
-                                  COMP_T    eta);
-    virtual MySolver& train_batch(COMP_T*   data,
-                                  DAT_DIM_T d,
                                   N_DAT_T*  x,
                                   N_DAT_T   n,
                                   SUPV_T*   y,
                                   COMP_T    eta);
     virtual COMP_T    compute_obj(COMP_T*   data,
                                   DAT_DIM_T d,
-                                  N_DAT_T   n,
-                                  SUPV_T*   y);
-    virtual COMP_T    compute_obj(COMP_T*   data,
-                                  DAT_DIM_T d,
                                   N_DAT_T*  x,
                                   N_DAT_T   n,
                                   SUPV_T*   y);
-    
+    COMP_T            compute_loss(COMP_T*   data,
+                                   DAT_DIM_T d,
+                                   N_DAT_T*  x,
+                                   N_DAT_T   n,
+                                   SUPV_T*   y);
 
 private:
     /// Parameters of the training process (external)
@@ -227,8 +225,7 @@ private:
     // std::vector<std::pair<COMP_T, SUPV_T>> supp_p_max;
     // std::vector<std::pair<COMP_T, SUPV_T>> supp_p_min;
 
-    MySolver& full_train(unsigned int& i,
-                         unsigned int  n_iter,
+    MySolver& full_train(unsigned int  n_iter,
                          DAT_DIM_T     dim,
                          N_DAT_T*      x,
                          N_DAT_T       n_sample,
@@ -239,15 +236,15 @@ private:
                          SUPV_T        n_inc_supp_p,
                          float         supp_p_inc_intv,
                          COMP_T        p_mean);
-    MySolver& fine_train(unsigned int& i,
-                         unsigned int  n_iter_fine,
+    MySolver& fine_train(unsigned int  n_iter_fine,
                          DAT_DIM_T     dim,
                          N_DAT_T*      x,
                          N_DAT_T       n_sample,
                          SUPV_T        n_label);
+    MySolver& simple_train(DAT_DIM_T dim, SUPV_T n_label);
 
-    COMP_T    compute_score(COMP_T* dat_i, DAT_DIM_T d) const;
-    COMP_T    compute_norm(DAT_DIM_T d) const;
+    COMP_T    compute_score(COMP_T* dat_i, DAT_DIM_T d)   const;
+    COMP_T    compute_norm(DAT_DIM_T d)                   const;
     COMP_T    info_gain(N_DAT_T n_sample, SUPV_T n_label) const;
 
     // Inherited functions
@@ -257,6 +254,15 @@ private:
         std::memcpy(w, some->w, gd_param->dimension() * sizeof(COMP_T));
         b = some->b;
         std::memcpy(p, some->p, stat.num_of_labels() * sizeof(COMP_T));
+        n_x_pos = some->n_x_pos;
+        n_x_neg = some->n_x_neg;
+        std::memcpy(supp_p, some->supp_p, stat.num_of_labels() * sizeof(COMP_T));
+        sort_min_max_p   = some->sort_min_max_p;
+        sort_max_min_p   = some->sort_max_min_p;
+        supp_p_min_max   = some->supp_p_min_max;
+        supp_p_max_min   = some->supp_p_max_min;
+        supp_i_p_min_max = some->supp_i_p_min_max;
+        supp_i_p_max_min = some->supp_i_p_max_min;
         return *this;
     }
 }; // Class MySolver
@@ -272,6 +278,17 @@ inline MySolver& MySolver::set_param(GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDP
     set_param(_gd_param, _sgd_param);
     my_param = &_my_param;
     return *this;
+}
+
+inline MySolver& MySolver::clear() {
+    delete[] w;      w      = NULL;
+    delete[] p;      p      = NULL;
+    delete[] supp_p; supp_p = NULL;
+    return *this;
+}
+
+inline bool MySolver::isclear() {
+    return !w && !p && !supp_p;
 }
 
 inline MySolver& MySolver::solve(N_DAT_T* _x_pos, N_DAT_T& _n_x_pos,

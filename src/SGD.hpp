@@ -106,6 +106,10 @@ public:
     GD();
     GD(GDParam& _gd_param);
     virtual ~GD() {}
+    // The assignment operator only assigns the content that is defined in 
+    // "assign_to_this()", which is often the data in the derived class.
+    // So be careful when using.
+    // GD& operator=(GD& some);
 
     GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
     set_param(GDParam& _gd_param);
@@ -184,15 +188,8 @@ protected:
 
     virtual _COMP_T compute_learning_rate(_COMP_T eta0, unsigned long t) = 0;
 
-    /// Train with all the data in "data".
-    virtual GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
-    train_batch(_COMP_T*   _data,
-                _DAT_DIM_T _d,
-                _N_DAT_T   _n,
-                _SUPV_T*   _y,
-                _COMP_T    _eta) = 0;
-
-    /// Train with a subset of data indicated by "x".
+    /// Train with data indicated by "_x" which refers to the indexes of samples 
+    /// in "_data".
     virtual GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
     train_batch(_COMP_T*   _data,
                 _DAT_DIM_T _d,
@@ -203,10 +200,7 @@ protected:
 
     /// Compute the object function (e.g. sum of empirical losses plus a 
     /// regularizing term) given the current parameters and data.
-    virtual _COMP_T compute_obj(_COMP_T*   _data,
-                                _DAT_DIM_T _d,
-                                _N_DAT_T   _n,
-                                _SUPV_T*   _y) = 0;
+    _COMP_T         compute_obj();
     virtual _COMP_T compute_obj(_COMP_T*   _data,
                                 _DAT_DIM_T _d,
                                 _N_DAT_T*  _x,
@@ -406,7 +400,7 @@ ostream_this(std::ostream& out) {
 template <typename _COMP_T,
           typename _SUPV_T,
           typename _DAT_DIM_T,
-          typename _N_DAT_T>
+          typename _N_DAT_T> inline 
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 GD(): data(NULL),
       n(0),
@@ -419,7 +413,7 @@ GD(): data(NULL),
 template <typename _COMP_T,
           typename _SUPV_T,
           typename _DAT_DIM_T,
-          typename _N_DAT_T>
+          typename _N_DAT_T> inline 
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 GD(GDParam& _gd_param)
   :data(NULL),
@@ -433,18 +427,11 @@ GD(GDParam& _gd_param)
 // template <typename _COMP_T,
 //           typename _SUPV_T,
 //           typename _DAT_DIM_T,
-//           typename _N_DAT_T>
+//           typename _N_DAT_T> inline 
 // GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>&
 // GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 // operator=(GD& some) {
-//     data     = some.data;
-//     n        = some.n;
-//     y        = some.y;
-//     stat     = some.stat;
-//     gd_param = some.gd_param;
-//     t        = some.t;
-//     eta      = some.eta;
-//     return *this;
+//     return assign_to_this(&some);
 // }
 
 template <typename _COMP_T,
@@ -525,7 +512,7 @@ train() {
     _COMP_T      err                = gd_param->accuracy();
     bool         show_obj_each_iter = gd_param->show_obj_each_iteration();
     _N_DAT_T     n_sample           = stat.num_of_samples();
-    _N_DAT_T*    x                  = NULL;
+    _N_DAT_T*    x                  = stat.index_of_samples();
     if (!dim) {
         std::cerr << "WARNING: GD: Dimensionality has not been specified. "
                   << "Training process is skipped." << std::endl;
@@ -549,10 +536,6 @@ train() {
     }
     _COMP_T obj0 = std::numeric_limits<_COMP_T>::max();
     _COMP_T obj1;
-    if (n > n_sample) {
-        x = new _N_DAT_T[n_sample];
-        stat.index_of_samples(x);
-    }
     if (verbosity >= 1) {
         std::cout << "Training ... ";
         if (verbosity > 1) std::cout << std::endl;
@@ -565,14 +548,8 @@ train() {
                       << std::flush;
         }
         eta = compute_learning_rate(eta0, t);
-        if (x) {
-            train_batch(data, dim, x, n_sample, y, eta);
-            obj1 = compute_obj(data, dim, x, n_sample, y);
-        }
-        else {
-            train_batch(data, dim, n, y, eta);
-            obj1 = compute_obj(data, dim, n, y);
-        }
+        train_batch(data, dim, x, n_sample, y, eta);
+        obj1 = compute_obj(data, dim, x, n_sample, y);
         if (verbosity >= 2) {
             std::cout << "Done. eta = " << eta;
             if (show_obj_each_iter) {
@@ -600,7 +577,6 @@ train() {
             std::cout << "    Max number of iterations has been reached.";
         std::cout << std::endl;
     }
-    delete[] x;
     return *this;
 }
 
@@ -669,17 +645,17 @@ template <typename _COMP_T,
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 try_learning_rate() {
-    _DAT_DIM_T dim      = gd_param->dimension();
-    _COMP_T    err      = gd_param->accuracy();
-    _N_DAT_T   n_sample = stat.num_of_samples();
+    char       verbosity = gd_param->verbosity();
+    _DAT_DIM_T dim       = gd_param->dimension();
+    _COMP_T    err       = gd_param->accuracy();
+    _N_DAT_T   n_sample  = stat.num_of_samples();
+    _COMP_T    eta0_try1, eta0_try2, obj_try1, obj_try2, eta0_try_factor;
+    GD*        GD_try1 = NULL, * GD_try2 = NULL, * GD_temp = NULL;
     if (!dim) {
         std::cerr << "WARNING: SGD: Dimensionality has not been specified. "
                   << "Training process is skipped." << std::endl;
         return *this;
     }
-    char verbosity = gd_param->verbosity();
-    _COMP_T eta0_try1, eta0_try2, obj_try1, obj_try2, eta0_try_factor;
-    GD* GD_try1 = NULL, * GD_try2 = NULL;
     if (verbosity >= 1) {
         std::cout << "Initializing ... ";
         if (verbosity >= 2) {
@@ -709,7 +685,6 @@ try_learning_rate() {
     if (verbosity >= 3)
         std::cout << "        Trying eta0 = " << eta0_try1 << " ... " << std::flush;
     GD_try1       = duplicate_this();
-    GD_try1->eta  = eta0_try1;
     GD_try1->stat = stat_new;
     GD_try1->train_batch(data, dim, sub_x_i, n_subsample, y, eta0_try1);
     obj_try1 = GD_try1->compute_obj(data, dim, sub_x_i, n_subsample, y);
@@ -726,7 +701,6 @@ try_learning_rate() {
     if (verbosity >= 3)
         std::cout << "        Trying eta0 = " << eta0_try2 << "... " << std::flush;
     GD_try2       = duplicate_this();
-    GD_try2->eta  = eta0_try2;
     GD_try2->stat = stat_new;
     GD_try2->train_batch(data, dim, sub_x_i, n_subsample, y, eta0_try2);
     obj_try2 = GD_try2->compute_obj(data, dim, sub_x_i, n_subsample, y);
@@ -736,30 +710,31 @@ try_learning_rate() {
         eta0_try_factor = 1 / eta0_try_factor;
         obj_try2        = obj_try1;
         eta0_try2       = eta0_try1;
-        delete GD_try2;
+        GD_temp         = GD_try2;
         GD_try2         = GD_try1;
-        GD_try1         = NULL;
+        GD_try1         = GD_temp;
     }
     do {
-        delete GD_try1;
         eta0_try1 = eta0_try2;
         obj_try1  = obj_try2;
+        GD_temp   = GD_try1;
         GD_try1   = GD_try2;
+        GD_try2   = GD_temp;
         eta0_try2 = eta0_try1 * eta0_try_factor;
+        if (eta0_try2 < err) break;
         if (verbosity >= 3)
             std::cout << "        Trying eta0 = " << eta0_try2 << "... " << std::flush;
-        GD_try2 = duplicate_this();
+        GD_try2->assign_to_this(this);
         GD_try2->eta = eta0_try2;
         GD_try2->stat = stat_new;
         GD_try2->train_batch(data, dim, sub_x_i, n_subsample, y, eta0_try2);
         obj_try2 = GD_try2->compute_obj(data, dim, sub_x_i, n_subsample, y);
         if (verbosity >= 3)
             std::cout << "Done. Obj = " << obj_try2 << "." << std::endl;
-    } while (obj_try1 >= obj_try2 && eta0_try2 >= err);
+    } while (obj_try1 >= obj_try2);
     delete GD_try2;
     if (eta0_try_factor > 1) eta0_try_factor = 1 / eta0_try_factor;
     gd_param->init_learning_rate(eta0_try1 * eta0_try_factor);
-    GD_try1->stat = stat;
     t = 1;
     assign_to_this(GD_try1);
     delete GD_try1;
@@ -771,6 +746,21 @@ try_learning_rate() {
     delete[] sub_x_i;
     return *this;
 }
+
+template <typename _COMP_T,
+          typename _SUPV_T,
+          typename _DAT_DIM_T,
+          typename _N_DAT_T> inline 
+_COMP_T 
+GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
+compute_obj() {
+    return compute_obj(data,
+                       gd_param->dimension(),
+                       stat.index_of_samples(),
+                       n,
+                       y);
+}
+
 
 template <typename _COMP_T,
           typename _SUPV_T,
@@ -886,7 +876,7 @@ train() {
     _N_DAT_T     s_batch            = sgd_param->size_of_batches();
     unsigned int n_epoch            = sgd_param->num_of_epoches();
     _N_DAT_T     n_sample           = this->stat.num_of_samples();
-    _N_DAT_T*    rand_x;
+    _N_DAT_T*    rand_x             = this->stat.index_of_samples();
     _N_DAT_T     n_batch  = n_sample / s_batch;
     _N_DAT_T     n_remain = n_sample - s_batch * n_batch;
     if (!dim) {
@@ -910,7 +900,6 @@ train() {
         }
         return *this;
     }
-    rand_x = new _N_DAT_T[n_sample];
     // _COMP_T obj0 = std::numeric_limits<_COMP_T>::max();
     // _COMP_T obj1;
     unsigned int i;
@@ -934,7 +923,12 @@ train() {
         if (verbosity == 2) {
             std::cout << "Done. eta = " << this->eta;
             if (show_obj_each_iter) {
-                std::cout << ", Objective = " << this->compute_obj(this->data, dim, rand_x, n_sample, this->y);
+                std::cout << ", Objective = " 
+                          << this->compute_obj(this->data,
+                                               dim,
+                                               rand_x,
+                                               n_sample,
+                                               this->y);
             }
             std::cout << "." << std::endl;
         }
@@ -959,7 +953,6 @@ train() {
             std::cout << "    Max number of epoches has been reached.";
         std::cout << std::endl;
     }
-    delete[] rand_x;
     return *this;
 }
 
@@ -1015,12 +1008,19 @@ train_epoch(_DAT_DIM_T _d, _N_DAT_T* _x,
                       << " ... " << std::flush;
         }
         this->eta = this->compute_learning_rate(eta0, this->t);
-        this->train_batch(this->data, _d, x_batch, _s_batch, this->y, this->eta);
+        this->train_batch(this->data,
+                          _d,
+                          x_batch,
+                          _s_batch,
+                          this->y,
+                          this->eta);
         if (_v >= 3) {
             std::cout << "Done. eta = " << this->eta;
             if (show_obj_each_iter) {
                 std::cout << ", Objective = "
-                          << this->compute_obj(this->data, _d, _x,
+                          << this->compute_obj(this->data,
+                                               _d,
+                                               _x,
                                                _s_batch * _n_batch + _n_remain,
                                                this->y);
             }
@@ -1033,13 +1033,20 @@ train_epoch(_DAT_DIM_T _d, _N_DAT_T* _x,
                       << num_of_batches << " ... " << std::flush;
         }
         this->eta = this->compute_learning_rate(eta0, this->t);
-        this->train_batch(this->data, _d, x_batch, _n_remain, this->y, this->eta);
+        this->train_batch(this->data,
+                          _d,
+                          x_batch,
+                          _n_remain,
+                          this->y,
+                          this->eta);
         ++this->t;
         if (_v >= 3) {
             std::cout << "Done. eta = " << this->eta;
             if (show_obj_each_iter) {
                 std::cout << ", Objective = "
-                          << this->compute_obj(this->data, _d, _x,
+                          << this->compute_obj(this->data,
+                                               _d,
+                                               _x,
                                                _s_batch * _n_batch + _n_remain,
                                                this->y);
             }

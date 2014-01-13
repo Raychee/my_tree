@@ -15,6 +15,7 @@ enum code {
     HELP,
     CONFIG_FILE,
     LOG_FILE,
+    LOG_LEVEL,
     TREE_FILE,
     GD_VERBOSITY,
     GD_INIT_LEARNING_RATE,
@@ -49,6 +50,7 @@ void read_data(const char* data_file,
                COMP_T*& X, DAT_DIM_T& d, N_DAT_T& N, SUPV_T*& Y);
 void read_args(int   argc,      const char** argv,
                char* data_file, char*        log_file, char*      tree_dir,
+               char& log_v,
                GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   gd_param,
                SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam& sgd_param,
                MySolver::MyParam&                                 my_param,
@@ -66,7 +68,7 @@ void print_help();
 int main(int argc, const char** argv)
 {
 
-    char data_file[1024], log_file[1024], tree_dir[1024];
+    char data_file[1024], log_file[1024], tree_dir[1024], log_v = 1;
     COMP_T* X; DAT_DIM_T D; N_DAT_T N; SUPV_T* Y;
 
     GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam   gd_param;
@@ -74,7 +76,7 @@ int main(int argc, const char** argv)
     MySolver::MyParam                                 my_param;
     MyTree::MyTreeParam                               my_tree_param;
 
-    read_args(argc, argv, data_file, log_file, tree_dir,
+    read_args(argc, argv, data_file, log_file, tree_dir, log_v,
               gd_param, sgd_param, my_param, my_tree_param);
     read_data(data_file, X, D, N, Y);
     gd_param.dimension(D);
@@ -86,10 +88,9 @@ int main(int argc, const char** argv)
             std::cerr << "\nFailed opening file: " << log_file << std::endl;
             std::exit(1);
         }
-        char v = my_tree_param.verbosity();
-        if (v > 2) gd_param.ostream_of_training_process(log_f);
-        else if (v > 1) my_param.ostream_of_training_process(log_f);
-        else if (v > 0) my_tree_param.ostream_of_training_result(log_f);
+        if (log_v > 2)      gd_param.ostream_of_training_process(log_f);
+        else if (log_v > 1) my_param.ostream_of_training_process(log_f);
+        else                my_tree_param.ostream_of_training_result(log_f);
     }
     
     MyTree tree(gd_param, sgd_param, my_param, my_tree_param);
@@ -167,6 +168,7 @@ void read_data(const char* data_file,
 
 void read_args(int   argc,      const char** argv,
                char* data_file, char*        log_file,  char*     tree_dir,
+               char& log_v,
                GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   gd_param,
                SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam& sgd_param,
                MySolver::MyParam&                                 my_param,
@@ -188,6 +190,9 @@ void read_args(int   argc,      const char** argv,
                 case LOG_FILE: assert_arg(last_arg); ++i;
                     std::strcpy(log_file, argv[i]);
                     break;
+                case LOG_LEVEL: assert_arg(last_arg); ++i;
+                    log_v = strto<int>(argv[i]);
+                    break;
                 case TREE_FILE: assert_arg(last_arg); ++i;
                     std::strcpy(tree_dir, argv[i]);
                     break;
@@ -200,28 +205,9 @@ void read_args(int   argc,      const char** argv,
         }
     }
     assert_arg(!data_file[0]);
-    // for (i = 1; i < argc && argv[i][0] == '-'; ++i) {
-    //     switch (parse_arg(argv[i])) {
-    //         case 0  : print_help(); exit(0);
-    //         case 1  : ++i; gd_param.verbosity(argv[i][0] - '0');
-    //         case 2  : ++i; my_param.regul_coef(std::atof(argv[i]));
-    //         case 3  : ++i; my_param.regul_coef(std::atof(argv[i])); break;
-    //         case 5  : ++i; sgd_param.num_of_epoches(std::atoi(argv[i]));
-    //         case 6  : ++i; sgd_param.num_of_epoches(std::atoi(argv[i])); break;
-    //         case 11 : ++i; gd_param.init_learning_rate(std::atof(argv[i]));
-    //         case 12 : ++i; gd_param.init_learning_rate(std::atof(argv[i])); break;
-    //         case 14 : ++i; gd_param.learning_rate_1st_try(std::atof(argv[i]));
-    //         case 15 : ++i; gd_param.learning_rate_1st_try(std::atof(argv[i])); break;
-    //         case 17 : ++i; gd_param.learning_rate_try_factor(std::atof(argv[i]));
-    //         case 18 : ++i; gd_param.learning_rate_try_factor(std::atof(argv[i])); break;
-    //         default:
-    //             std::cerr << "Unrecognized option " << argv[i] << "! Please type \"labeltree_train -h\" for help.\n";
-    //             exit(1);
-    //     }
-    // }
 }
 
-void assert_arg(bool oops) {
+inline void assert_arg(bool oops) {
     if (oops) {
         std::cerr << "Not enough input parameters!\n";
         exit(1);
@@ -229,46 +215,16 @@ void assert_arg(bool oops) {
 }
 
 code parse_arg_short(const char* arg) {
-    if (arg[1] != '\0') return ERROR;
-    switch (arg[0]) {
-        case 'h': return HELP;
-        case 'o': return TREE_FILE;
-        // case 'v': return 1;
-        // case 'n': return 5;
-        // case 'f': return 8;
-        // case 'e': return 11;
-        // case 'b': return 20;
-        // case 'o': return 256;
-        default : return ERROR;
-    }
+    if (!std::strcmp(arg, "h")) return HELP;
+    if (!std::strcmp(arg, "o")) return TREE_FILE;
+    return ERROR;
 }
 
 code parse_arg_long(const char* arg) {
-    if (!std::strcmp(arg, "help"))                 return HELP;
-    // if (!std::strcmp(arg, "verbosity"))            return 1;
-    // if (!std::strcmp(arg, "lambda"))               return 2;
-    // if (!std::strcmp(arg, "svm-lambda"))           return 3;
-    // if (!std::strcmp(arg, "tree-lambda"))          return 4;
-    // if (!std::strcmp(arg, "epoch"))                return 5;
-    // if (!std::strcmp(arg, "svm-epoch"))            return 6;
-    // if (!std::strcmp(arg, "tree-epoch"))           return 7;
-    // if (!std::strcmp(arg, "comp-obj"))             return 8;
-    // if (!std::strcmp(arg, "svm-comp-obj"))         return 9;
-    // if (!std::strcmp(arg, "tree-comp-obj"))        return 10;
-    // if (!std::strcmp(arg, "eta0"))                 return 11;
-    // if (!std::strcmp(arg, "svm-eta0"))             return 12;
-    // if (!std::strcmp(arg, "tree-eta0"))            return 13;
-    // if (!std::strcmp(arg, "eta0-1st-try"))         return 14;
-    // if (!std::strcmp(arg, "svm-eta0-1st-try"))     return 15;
-    // if (!std::strcmp(arg, "tree-eta0-1st-try"))    return 16;
-    // if (!std::strcmp(arg, "eta0-try-factor"))      return 17;
-    // if (!std::strcmp(arg, "svm-eta0-try-factor"))  return 18;
-    // if (!std::strcmp(arg, "tree-eta0-try-factor")) return 19;
-    // if (!std::strcmp(arg, "nary"))                 return 20;
-    // if (!std::strcmp(arg, "out"))                  return 256;
-    // if (!std::strcmp(arg, "out-svm"))              return 257;
-    if (!std::strcmp(arg, "config"))                 return CONFIG_FILE;
-    if (!std::strcmp(arg, "log"))                    return LOG_FILE;
+    if (!std::strcmp(arg, "help"))      return HELP;
+    if (!std::strcmp(arg, "config"))    return CONFIG_FILE;
+    if (!std::strcmp(arg, "log"))       return LOG_FILE;
+    if (!std::strcmp(arg, "log-level")) return LOG_LEVEL;
     return ERROR;
 }
 
@@ -346,6 +302,8 @@ void read_config(const char*                                        config_file,
             { my_tree_param.min_entropy(strto<COMP_T>(str_value)); }
         else if (!std::strcmp(str_param, "TREE_max_depth"))
             { my_tree_param.max_depth(strto<SUPV_T>(str_value)); }
+        else if (!std::strcmp(str_param, "TREE_min_num_of_samples_per_node"))
+            { my_tree_param.min_num_of_samples(strto<N_DAT_T>(str_value)); }
     }
     file.close();
     std::cout << "Done." << std::endl;

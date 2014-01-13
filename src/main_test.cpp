@@ -156,7 +156,7 @@ void read_args(int   argc,      const char** argv,
     assert_arg(!data_file[0] || !tree_dir[0]);
 }
 
-void assert_arg(bool oops) {
+inline void assert_arg(bool oops) {
     if (oops) {
         std::cerr << "Not enough input parameters!\n";
         exit(1);
@@ -164,11 +164,8 @@ void assert_arg(bool oops) {
 }
 
 code parse_arg_short(const char* arg) {
-    if (arg[1] != '\0') return ERROR;
-    switch (arg[0]) {
-        case 'h': return HELP;
-        default : return ERROR;
-    }
+    if (!std::strcmp(arg, "h")) return HELP;
+    return ERROR;
 }
 
 code parse_arg_long(const char* arg) {

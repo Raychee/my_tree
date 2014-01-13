@@ -9,11 +9,13 @@
 
 MyTree& MyTree::train(COMP_T* data, N_DAT_T n, SUPV_T* y,
                       N_DAT_T* x, N_DAT_T s_x) {
-    COMP_T        min_entropy = my_tree_param->min_entropy();
-    SUPV_T        max_depth   = my_tree_param->max_depth();
-    std::ostream* out         = my_tree_param->ostream_of_training_result();
+    char          verbosity    = my_tree_param->verbosity();
+    COMP_T        min_entropy  = my_tree_param->min_entropy();
+    SUPV_T        max_depth    = my_tree_param->max_depth();
+    N_DAT_T       min_n_sample = my_tree_param->min_num_of_samples();
+    std::ostream* out          = my_tree_param->ostream_of_training_result();
+    MySolver*     solver;
     gd_param->init_learning_rate(gd_param->learning_rate_1st_try());
-    MySolver* solver;
     solver = new MySolver(*gd_param, *sgd_param, *my_param);
     solver->training_data(data, n, y, x, s_x);
     if (!x || !s_x) s_x = n;
@@ -24,25 +26,39 @@ MyTree& MyTree::train(COMP_T* data, N_DAT_T n, SUPV_T* y,
     root = new TreeNode(solver);
     iterator it_end = end();
     for (iterator i = begin(); i != it_end; ++i) {
-        TreeNode* node;
         solver = i->pcontent();
-        if (max_depth > 0 && i->depth() >= (unsigned)max_depth) continue;
-        if (solver->entropy() < min_entropy) continue;
-        gd_param->learning_rate_1st_try(gd_param->init_learning_rate());
-        gd_param->init_learning_rate(0);
-        solver->solve(x_pos, n_x_pos, x_neg, n_x_neg);
-        if (out) {
-            solver->ostream_param(*out);
-            *out << std::endl;
+        COMP_T ent = solver->entropy();
+        if (verbosity >= 1) {
+            std::cout << "**************** TreeNode (depth = " << i->depth() 
+                      << ", entropy = " << ent 
+                      << ") ****************\n" << solver->distribution()
+                      << std::endl;
         }
-        solver = new MySolver(*gd_param, *sgd_param, *my_param);
-        solver->training_data(data, n, y, x_pos, n_x_pos);
-        node = new TreeNode(solver);
-        i->attach_child(node);
-        solver = new MySolver(*gd_param, *sgd_param, *my_param);
-        solver->training_data(data, n, y, x_neg, n_x_neg);
-        node = new TreeNode(solver);
-        i->attach_child(node);
+        if (max_depth > 0 && i->depth() <= (unsigned)max_depth
+                && ent > min_entropy
+                && solver->distribution().num_of_samples() > min_n_sample) {
+            TreeNode* node;
+            gd_param->learning_rate_1st_try(gd_param->init_learning_rate());
+            gd_param->init_learning_rate(0);
+            solver->solve(x_pos, n_x_pos, x_neg, n_x_neg);
+            if (out) {
+                solver->ostream_param(*out);
+                *out << std::endl;
+            }
+            solver = new MySolver(*gd_param, *sgd_param, *my_param);
+            solver->training_data(data, n, y, x_pos, n_x_pos);
+            node = new TreeNode(solver);
+            i->attach_child(node);
+            solver = new MySolver(*gd_param, *sgd_param, *my_param);
+            solver->training_data(data, n, y, x_neg, n_x_neg);
+            node = new TreeNode(solver);
+            i->attach_child(node);
+        }   
+        if (verbosity >= 1) {
+            std::cout << "************ End of TreeNode (depth = " << i->depth() 
+                      << ", entropy = " << ent 
+                      << ") *************" << std::endl;
+        }
     }
     delete[] x_pos;
     delete[] x_neg;
