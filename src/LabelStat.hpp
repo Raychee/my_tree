@@ -319,6 +319,7 @@ ofstream_this(std::ofstream& out) {
         out << label_[i] << " " << n_x_of_label[i]
             << "    # label | number of samples\n";
     }
+    out << entropy() << "    # entropy\n";
     return *this;
 }
 
@@ -339,6 +340,7 @@ istream_this(std::istream& in) {
         n_x_of_label[i] = strto<_N_DAT_T>(delimit);
         n_sample += n_x_of_label[i];
     }
+    in.getline(line_str, 1024);
     return *this;
 }
 
@@ -379,6 +381,10 @@ index_of_samples() {
             for (_N_DAT_T i = 0; i < n_x_label; ++i) {
                 x_sample[count++] = x_label[i];
             }
+        }
+        if (count != n_sample) {
+            std::cerr << "Unknown error in LabelStat::index_of_samples()."
+                      << std::endl;
         }
     }
     return x_sample;

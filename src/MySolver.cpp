@@ -152,6 +152,7 @@ MySolver& MySolver::solve() {
     char         gd_v              = gd_param->verbosity();
     N_DAT_T      n_subsample       = gd_param->min_num_of_subsamples();
     COMP_T       eta0              = gd_param->init_learning_rate();
+    bool         show_obj          = gd_param->show_obj_each_iteration();
     char         my_v              = my_param->verbosity();
     unsigned int n_trial           = my_param->num_of_trials();
     unsigned int n_train           = my_param->num_of_trainings();
@@ -165,14 +166,13 @@ MySolver& MySolver::solve() {
     bool         show_p            = my_param->show_p_each_iter();
     SUPV_T       n_label           = stat.num_of_labels();
     N_DAT_T      n_sample          = stat.num_of_samples();
-    SUPV_T       n_supp_p          = supp_p_ratio * n_label + 0.5;
-    SUPV_T       n_init_supp_p     = init_supp_p_ratio * n_supp_p + 0.5;
-    N_DAT_T*     rand_x            = stat.index_of_samples();
-    N_DAT_T*     x_subsample;
-    COMP_T*      center;
-    COMP_T       loss_opt    = std::numeric_limits<COMP_T>::max();
-    MySolver*    best_solver = NULL;
-    MySolver*    try_solver  = NULL;
+    N_DAT_T*     x                 = stat.index_of_samples();
+    SUPV_T       n_supp_p      = supp_p_ratio * n_label + 0.5;
+    SUPV_T       n_init_supp_p = init_supp_p_ratio * n_supp_p + 0.5;
+    COMP_T       loss_opt      = std::numeric_limits<COMP_T>::max();
+    MySolver*    best_solver   = NULL;
+    MySolver*    try_solver    = NULL;
+    COMP_T*      center        = new COMP_T[dim];
     if (!w) w = new COMP_T[dim];
     if (!p) p = new COMP_T[n_label];
     term_loss = new COMP_T[dim];
@@ -188,15 +188,6 @@ MySolver& MySolver::solve() {
     }
     
     if (!n_subsample || n_subsample > n_sample) n_subsample = n_sample;
-    x_subsample = new N_DAT_T[n_subsample];
-    center      = new COMP_T[dim];
-    stat.rand_index(x_subsample, n_subsample);
-    for (DAT_DIM_T i = 0; i < dim; ++i) center[i] = 0;
-    for (N_DAT_T i = 0; i < n_subsample; ++i) {
-        COMP_T* dat_i = data + dim * x_subsample[i];
-        for (DAT_DIM_T i = 0; i < dim; ++i) center[i] += dat_i[i];
-    }
-    for (DAT_DIM_T i = 0; i < dim; ++i) center[i] /= n_subsample;
 
     if (!n_supp_p && supp_p_ratio > 0) n_supp_p = 1;
     if (!n_init_supp_p && init_supp_p_ratio > 0) n_init_supp_p = 1;
@@ -233,13 +224,20 @@ MySolver& MySolver::solve() {
     }
 
     t = 0;
-    if (n_trial > n_subsample) n_trial = n_subsample;
     for (unsigned int i_trial = 0; i_trial < n_trial; ++i_trial) {
         if (my_v >= 1) {
             std::cout << "Trying parameters " << i_trial + 1 << " ... \n"
                       << "Initializing ... " << std::flush;
         }
-        COMP_T* sample = data + dim * x_subsample[i_trial];
+        rand_index(x, n_sample);
+        for (DAT_DIM_T i = 0; i < dim; ++i) center[i] = 0;
+        for (N_DAT_T i = 0; i < n_subsample; ++i) {
+            COMP_T* dat_i = data + dim * x[i];
+            for (DAT_DIM_T j = 0; j < dim; ++j) center[j] += dat_i[j];
+        }
+        for (DAT_DIM_T i = 0; i < dim; ++i) center[i] /= n_subsample;
+
+        COMP_T* sample = data + dim * x[n_sample - 1];
         b = 0;
         for (DAT_DIM_T i = 0; i < dim; ++i) {
             w[i] = sample[i] - center[i];
@@ -270,7 +268,7 @@ MySolver& MySolver::solve() {
             // unsigned int i, j;
             if (try_solver) try_solver->assign_to_this(this);
             else try_solver = new MySolver(*this);
-            try_solver->full_train(n_iter, dim, rand_x, n_sample, n_label,
+            try_solver->full_train(n_iter, dim, x, n_sample, n_label,
                                    eta0, n_supp_p, n_cur_supp_p, n_inc_supp_p,
                                    supp_p_inc_intv, p_mean);
             if (my_v == 1 && gd_v < 1) std::cout << "Done." << std::endl;
@@ -284,7 +282,7 @@ MySolver& MySolver::solve() {
                     if (my_v > 1 || gd_v >= 1) std::cout << std::endl;
                     else std::cout.flush();
                 }
-                try_solver->fine_train(n_iter_fine, dim, rand_x, n_sample, n_label);
+                try_solver->fine_train(n_iter_fine, dim, x, n_sample, n_label);
                 if (my_v == 1 && gd_v < 1) std::cout << "Done." << std::endl;
             }
             if (try_solver->fail()) {
@@ -309,21 +307,29 @@ MySolver& MySolver::solve() {
                 // else std::cout << "    Max number of iterations has been reached.";
                 std::cout << std::endl;
             }
-            COMP_T loss = try_solver->compute_loss(data, dim, rand_x, n_sample, y);
+            COMP_T loss = try_solver->compute_loss(data, dim, x, n_sample, y);
             if (loss < loss_opt) {
                 MySolver* temp = try_solver;
                 try_solver  = best_solver;
                 best_solver = temp;
-                loss_opt    = loss;
                 if (my_v >= 1) {
-                    std::cout << "    Current result is the best so far."
-                              << std::endl;
+                    std::cout << "    Current result is the best so far.";
+                    if (show_obj) {
+                        std::cout << " (Loss: Old = " << loss_opt << ", New = "
+                                  << loss << ")";
+                    }
+                    std::cout << std::endl;
                 }
+                loss_opt = loss;
             }
             else {
                 if (my_v >= 1) {
-                    std::cout << "    Current result is not the best."
-                              << std::endl;
+                    std::cout << "    Current result is not the best.";
+                    if (show_obj) {
+                        std::cout << " (Loss: Best = " << loss_opt << ", New = "
+                                  << loss << ")";
+                    }
+                    std::cout << std::endl;
                 }
             }
         }
@@ -336,7 +342,6 @@ MySolver& MySolver::solve() {
     delete   try_solver;
     delete[] term_loss;    term_loss    = NULL;
     delete[] supp_p;       supp_p       = NULL;
-    delete[] x_subsample;
     delete[] center;
     if (my_v >= 1) {
         std::cout << "MySolver Training: finished. \n";

@@ -242,8 +242,10 @@ void read_config(const char*                                        config_file,
     char line_str[1024];
     while (file.getline(line_str, 1024)) {
         char* str_param, * str_value;
-        for (str_value = line_str; *str_value != '\0' && *str_value != '=' ; ++str_value);
-        if (*str_value == '\0') continue;
+        for (str_value = line_str;
+             *str_value != '\0' && *str_value != '=' && *str_value != '#';
+             ++str_value);
+        if (*str_value != '=') continue;
         *(str_value++) = '\0';
         str_param = strtostr(line_str);
         if (!std::strcmp(str_param, "GD_verbosity"))

@@ -128,6 +128,7 @@ void read_args(int   argc,      const char** argv,
                char* data_file, char*        tree_dir, 
                bool& detail) {
     int i = 0;
+    data_file[0] = tree_dir[0] = '\0';
     if (argc < 2) { print_help(); exit(0); }
     while (++i < argc) {
         if (argv[i][0] == '-') {

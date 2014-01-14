@@ -153,6 +153,9 @@ public:
     test(_COMP_T* _data, _N_DAT_T _n, _SUPV_T* _y,
          _N_DAT_T* _x = NULL, _N_DAT_T _s_x = 0);
 
+    GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
+    rand_index(_N_DAT_T* x, _N_DAT_T n, _N_DAT_T m = 0);
+
     /// Test one data sample.
     virtual _SUPV_T test_one(_COMP_T* dat_i, _DAT_DIM_T d) const = 0;
 
@@ -275,9 +278,6 @@ public:
     /// data sample.
     virtual SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
     train();
-
-    SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
-    rand_index(_N_DAT_T* x, _N_DAT_T n);
 
     /// Output the SGD solver to a standard ostream.
     virtual SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
@@ -629,6 +629,23 @@ template <typename _COMP_T,
           typename _SUPV_T,
           typename _DAT_DIM_T,
           typename _N_DAT_T>
+GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
+GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
+rand_index(_N_DAT_T* x, _N_DAT_T n, _N_DAT_T m) {
+    if (!m || m > n) m = n;
+    for (_N_DAT_T i = 0; i < m; ++i) {
+        _N_DAT_T temp_i = std::rand() % (n - i) + i;
+        _N_DAT_T temp   = x[temp_i];
+        x[temp_i]       = x[i];
+        x[i]            = temp;
+    }
+    return *this;
+}
+
+template <typename _COMP_T,
+          typename _SUPV_T,
+          typename _DAT_DIM_T,
+          typename _N_DAT_T>
 inline GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 ostream_this(std::ostream& out) {
@@ -649,6 +666,7 @@ try_learning_rate() {
     _DAT_DIM_T dim       = gd_param->dimension();
     _COMP_T    err       = gd_param->accuracy();
     _N_DAT_T   n_sample  = stat.num_of_samples();
+    _N_DAT_T*  sub_x_i   = stat.index_of_samples();
     _COMP_T    eta0_try1, eta0_try2, obj_try1, obj_try2, eta0_try_factor;
     GD*        GD_try1 = NULL, * GD_try2 = NULL, * GD_temp = NULL;
     if (!dim) {
@@ -671,8 +689,8 @@ try_learning_rate() {
     if (n_subsample < gd_param->min_num_of_subsamples())
         n_subsample = gd_param->min_num_of_subsamples();
     if (n_subsample > n_sample) n_subsample = n_sample;
-    _N_DAT_T* sub_x_i = new _N_DAT_T[n_subsample];
-    stat.rand_index(sub_x_i, n_subsample);
+    
+    rand_index(sub_x_i, n_sample, n_subsample);
 
     LabelStat<_SUPV_T, _N_DAT_T> stat_new(y, n_subsample, sub_x_i);
 
@@ -725,8 +743,6 @@ try_learning_rate() {
         if (verbosity >= 3)
             std::cout << "        Trying eta0 = " << eta0_try2 << "... " << std::flush;
         GD_try2->assign_to_this(this);
-        GD_try2->eta = eta0_try2;
-        GD_try2->stat = stat_new;
         GD_try2->train_batch(data, dim, sub_x_i, n_subsample, y, eta0_try2);
         obj_try2 = GD_try2->compute_obj(data, dim, sub_x_i, n_subsample, y);
         if (verbosity >= 3)
@@ -743,7 +759,6 @@ try_learning_rate() {
         if (verbosity == 2) std::cout << "Done.\n";
         std::cout << "    Setting eta0 = " << eta0_try1 * eta0_try_factor << "." << std::endl;
     }
-    delete[] sub_x_i;
     return *this;
 }
 
@@ -911,7 +926,7 @@ train() {
     for (i = 0; i < n_epoch; ++i) {
         if (verbosity >= 3)
             std::cout << "    Shuffling the data set... " << std::flush;
-        this->stat.rand_index(rand_x);
+        this->rand_index(rand_x, n_sample);
         if (verbosity >= 3) std::cout << "Done." << std::endl; 
         if (verbosity >= 2) {
             std::cout << "    Epoch " << i + 1  << " ... ";
@@ -952,22 +967,6 @@ train() {
         else 
             std::cout << "    Max number of epoches has been reached.";
         std::cout << std::endl;
-    }
-    return *this;
-}
-
-template <typename _COMP_T,
-          typename _SUPV_T,
-          typename _DAT_DIM_T,
-          typename _N_DAT_T>
-SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
-SGD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
-rand_index(_N_DAT_T* x, _N_DAT_T n) {
-    for (_N_DAT_T i = 0; i < n; ++i) {
-        _N_DAT_T temp_i = std::rand() % (n - i) + i;
-        _N_DAT_T temp   = x[temp_i];
-        x[temp_i]       = x[i];
-        x[i]            = temp;
     }
     return *this;
 }
