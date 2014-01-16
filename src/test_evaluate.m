@@ -17,6 +17,9 @@ for i = 1 : length(y)
         Y(sample_distrib(1, :), i_sample) = ...
                 Y(sample_distrib(1, :), i_sample) + sample_distrib(2, :)';
     end
+    if i_sample ~= n_sample
+        error('Number of samples mismatch');
+    end
 end
 
 end

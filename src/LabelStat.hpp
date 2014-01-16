@@ -178,95 +178,100 @@ LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
 stat(_SUPV_T*  y, _N_DAT_T  n, _N_DAT_T* x) {
     clear();
     n_sample = n;
-    if (x) {
-        _SUPV_T max_label = 0;
-        for (_N_DAT_T i = 0; i < n; ++i) {
-            if (y[x[i]] > max_label) max_label = y[x[i]];
-        }
-        _N_DAT_T* max_n_x_of_label = new _N_DAT_T[max_label];
-        std::memset(max_n_x_of_label, 0, max_label * sizeof(_N_DAT_T));
-        for (_N_DAT_T i = 0; i < n; ++i) {
-            ++max_n_x_of_label[y[x[i]] - 1];
-        }
-        n_label = 0;
-        for (_SUPV_T i = 0; i < max_label; ++i) {
-            if (max_n_x_of_label[i]) ++n_label;
-        }
-        label_       = new _SUPV_T[n_label];
-        n_x_of_label = new _N_DAT_T[n_label];
-        x_of_label   = new _N_DAT_T*[n_label];
-        _SUPV_T count_label  = 0;
-        _SUPV_T* max_i_label = new _SUPV_T[max_label];
-        std::memset(n_x_of_label, 0, n_label * sizeof(_N_DAT_T));
-        std::memset(max_i_label, 0, n_label * sizeof(_SUPV_T));
-        for (_SUPV_T i = 0; i < max_label; ++i) {
-            if (max_n_x_of_label[i]) {
-                label_[count_label] = i + 1;
-                n_x_of_label[count_label] = max_n_x_of_label[i];
-                max_i_label[i] = count_label;
-                ++count_label;
-            }
-        }
-        i_label.insert(max_i_label, max_label);
-        delete[] max_n_x_of_label;
-        _N_DAT_T* x_of_label_count = new _N_DAT_T[n_label];
-        std::memset(x_of_label_count, 0, n_label * sizeof(_N_DAT_T));
-        for (_SUPV_T i = 0; i < n_label; ++i) {
-            x_of_label[i] = new _N_DAT_T[n_x_of_label[i]];
-        }
-        for (_N_DAT_T i = 0; i < n; ++i) {
-            _N_DAT_T x_i     = x[i];
-            _SUPV_T  label_i = i_label[y[x_i] - 1];
-            x_of_label[label_i][x_of_label_count[label_i]++] = x_i;
-        }
-        delete[] x_of_label_count;
-
-        // _N_DAT_T*  max_x_of_label_count = new _N_DAT_T[max_label];
-        // _N_DAT_T** max_x_of_label       = new _N_DAT_T*[max_label];
-        // std::memset(max_x_of_label_count, 0, max_label * sizeof(_N_DAT_T));
-        // for (_SUPV_T i = 0; i < n_label; ++i) {
-        //     max_x_of_label[label_[i] - 1] = new _N_DAT_T[n_x_of_label[i]];
-        // }
-        // for (_N_DAT_T i = 0; i < n; ++i) {
-        //     _N_DAT_T x_i = x[i];
-        //     _SUPV_T  y_i = y[x_i] - 1;
-        //     max_x_of_label[y_i][max_x_of_label_count[y_i]++] = x_i;
-        // }
-        // delete[] max_x_of_label_count;
-        // for (_SUPV_T i = 0; i < n_label; ++i) {
-        //     x_of_label[i] = max_x_of_label[label_[i] - 1];
-        // }
-        // delete[] max_x_of_label;
+    bool alloc_x = !x;
+    if (alloc_x) {
+        x = new _N_DAT_T[n];
+        for (_N_DAT_T i = 0; i < n; ++i) x[i] = i;
     }
-    else {
-        n_label = 0;
-        for (_N_DAT_T i = 0; i < n; ++i) {
-            if (y[i] > n_label) n_label = y[i];
-        }
-        label_       = new _SUPV_T[n_label];
-        n_x_of_label = new _N_DAT_T[n_label];
-        x_of_label   = new _N_DAT_T*[n_label];
-        _SUPV_T* max_i_label = new _SUPV_T[n_label];
-        std::memset(n_x_of_label, 0, n_label * sizeof(_N_DAT_T));
-        for (_SUPV_T i = 0; i < n_label; ++i) {
-            label_[i] = i + 1;
-            max_i_label[i] = i;
-        }
-        i_label.insert(max_i_label, n_label);
-        for (_N_DAT_T i = 0; i < n; ++i) {
-            ++n_x_of_label[y[i] - 1];
-        }
-        for (_SUPV_T i = 0; i < n_label; ++i) {
-            x_of_label[i] = new _N_DAT_T[n_x_of_label[i]];
-        }
-        _N_DAT_T* x_of_label_count = new _N_DAT_T[n_label];
-        std::memset(x_of_label_count, 0, n_label * sizeof(_N_DAT_T));
-        for (_N_DAT_T i = 0; i < n; ++i) {
-            _SUPV_T  y_i = y[i] - 1;
-            x_of_label[y_i][x_of_label_count[y_i]++] = i;
-        }
-        delete[] x_of_label_count;
+    _SUPV_T max_label = 0;
+    for (_N_DAT_T i = 0; i < n; ++i) {
+        if (y[x[i]] > max_label) max_label = y[x[i]];
     }
+    _N_DAT_T* max_n_x_of_label = new _N_DAT_T[max_label];
+    std::memset(max_n_x_of_label, 0, max_label * sizeof(_N_DAT_T));
+    for (_N_DAT_T i = 0; i < n; ++i) {
+        ++max_n_x_of_label[y[x[i]] - 1];
+    }
+    n_label = 0;
+    for (_SUPV_T i = 0; i < max_label; ++i) {
+        if (max_n_x_of_label[i]) ++n_label;
+    }
+    label_       = new _SUPV_T[n_label];
+    n_x_of_label = new _N_DAT_T[n_label];
+    x_of_label   = new _N_DAT_T*[n_label];
+    _SUPV_T count_label  = 0;
+    _SUPV_T* max_i_label = new _SUPV_T[max_label];
+    std::memset(n_x_of_label, 0, n_label * sizeof(_N_DAT_T));
+    std::memset(max_i_label, 0, n_label * sizeof(_SUPV_T));
+    for (_SUPV_T i = 0; i < max_label; ++i) {
+        if (max_n_x_of_label[i]) {
+            label_[count_label] = i + 1;
+            n_x_of_label[count_label] = max_n_x_of_label[i];
+            max_i_label[i] = count_label;
+            ++count_label;
+        }
+    }
+    i_label.insert(max_i_label, max_label);
+    delete[] max_n_x_of_label;
+    _N_DAT_T* x_of_label_count = new _N_DAT_T[n_label];
+    std::memset(x_of_label_count, 0, n_label * sizeof(_N_DAT_T));
+    for (_SUPV_T i = 0; i < n_label; ++i) {
+        x_of_label[i] = new _N_DAT_T[n_x_of_label[i]];
+    }
+    for (_N_DAT_T i = 0; i < n; ++i) {
+        _N_DAT_T x_i     = x[i];
+        _SUPV_T  label_i = i_label[y[x_i] - 1];
+        x_of_label[label_i][x_of_label_count[label_i]++] = x_i;
+    }
+    delete[] x_of_label_count;
+    if (alloc_x) delete[] x;
+    // if (x) {
+    //     // _N_DAT_T*  max_x_of_label_count = new _N_DAT_T[max_label];
+    //     // _N_DAT_T** max_x_of_label       = new _N_DAT_T*[max_label];
+    //     // std::memset(max_x_of_label_count, 0, max_label * sizeof(_N_DAT_T));
+    //     // for (_SUPV_T i = 0; i < n_label; ++i) {
+    //     //     max_x_of_label[label_[i] - 1] = new _N_DAT_T[n_x_of_label[i]];
+    //     // }
+    //     // for (_N_DAT_T i = 0; i < n; ++i) {
+    //     //     _N_DAT_T x_i = x[i];
+    //     //     _SUPV_T  y_i = y[x_i] - 1;
+    //     //     max_x_of_label[y_i][max_x_of_label_count[y_i]++] = x_i;
+    //     // }
+    //     // delete[] max_x_of_label_count;
+    //     // for (_SUPV_T i = 0; i < n_label; ++i) {
+    //     //     x_of_label[i] = max_x_of_label[label_[i] - 1];
+    //     // }
+    //     // delete[] max_x_of_label;
+    // }
+    // else {
+    //     n_label = 0;
+    //     for (_N_DAT_T i = 0; i < n; ++i) {
+    //         if (y[i] > n_label) n_label = y[i];
+    //     }
+    //     label_       = new _SUPV_T[n_label];
+    //     n_x_of_label = new _N_DAT_T[n_label];
+    //     x_of_label   = new _N_DAT_T*[n_label];
+    //     _SUPV_T* max_i_label = new _SUPV_T[n_label];
+    //     std::memset(n_x_of_label, 0, n_label * sizeof(_N_DAT_T));
+    //     for (_SUPV_T i = 0; i < n_label; ++i) {
+    //         label_[i] = i + 1;
+    //         max_i_label[i] = i;
+    //     }
+    //     i_label.insert(max_i_label, n_label);
+    //     for (_N_DAT_T i = 0; i < n; ++i) {
+    //         ++n_x_of_label[y[i] - 1];
+    //     }
+    //     for (_SUPV_T i = 0; i < n_label; ++i) {
+    //         x_of_label[i] = new _N_DAT_T[n_x_of_label[i]];
+    //     }
+    //     _N_DAT_T* x_of_label_count = new _N_DAT_T[n_label];
+    //     std::memset(x_of_label_count, 0, n_label * sizeof(_N_DAT_T));
+    //     for (_N_DAT_T i = 0; i < n; ++i) {
+    //         _SUPV_T  y_i = y[i] - 1;
+    //         x_of_label[y_i][x_of_label_count[y_i]++] = i;
+    //     }
+    //     delete[] x_of_label_count;
+    // }
     alloc = true;
     return *this;
 }

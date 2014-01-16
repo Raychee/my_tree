@@ -1,6 +1,7 @@
 train_data_name_prefix = 'caltech101';
-test_data_name_prefix = 'caltech101_test';
-D_subspace = 50;
+test_data_name_prefix = 'caltech101';
+D_subspace = 100;
+N_bootstrap = 5;
 
 config_path = fullfile('..', 'config');
 
@@ -12,7 +13,7 @@ test_data_path_prefix = fullfile('..', 'data', test_data_name_prefix);
 
 % training
 disp('Converting training data ... ');
-param = data_convert(train_data_path_prefix, X, Y, D_subspace);
+param = data_convert(train_data_path_prefix, X, Y, D_subspace, N_bootstrap);
 train(train_bin_path, train_data_path_prefix, config_path);
 
 % testing
