@@ -5,21 +5,27 @@
 
 template <> int strto<int>(const char* str) { return std::atoi(str); }
 template <> int strto<int>(const char* str, char*& str_end) { return (int)std::strtol(str, &str_end, 0); }
+template <> int strto<int>(const char* str, int base) { return (int)std::strtol(str, NULL, base); }
 template <> int strto<int>(const char* str, char*& str_end, int base) { return (int)std::strtol(str, &str_end, base); }
 template <> long strto<long>(const char* str) { return std::strtol(str, NULL, 0); }
 template <> long strto<long>(const char* str, char*& str_end) { return std::strtol(str, &str_end, 0); }
+template <> long strto<long>(const char* str, int base) { return std::strtol(str, NULL, base); }
 template <> long strto<long>(const char* str, char*& str_end, int base) { return std::strtol(str, &str_end, base); }
 template <> long long strto<long long>(const char* str) { return std::strtoll(str, NULL, 0); }
 template <> long long strto<long long>(const char* str, char*& str_end) { return std::strtoll(str, &str_end, 0); }
+template <> long long strto<long long>(const char* str, int base) { return std::strtoll(str, NULL, base); }
 template <> long long strto<long long>(const char* str, char*& str_end, int base) { return std::strtoll(str, &str_end, base); }
 template <> unsigned int strto<unsigned int>(const char* str) { return (unsigned int)std::strtoul(str, NULL, 0); }
 template <> unsigned int strto<unsigned int>(const char* str, char*& str_end) { return (unsigned int)std::strtoul(str, &str_end, 0); }
+template <> unsigned int strto<unsigned int>(const char* str, int base) { return (unsigned int)std::strtoul(str, NULL, base); }
 template <> unsigned int strto<unsigned int>(const char* str, char*& str_end, int base) { return (unsigned int)std::strtoul(str, &str_end, base); }
 template <> unsigned long strto<unsigned long>(const char* str) { return std::strtoul(str, NULL, 0); }
 template <> unsigned long strto<unsigned long>(const char* str, char*& str_end) { return std::strtoul(str, &str_end, 0); }
+template <> unsigned long strto<unsigned long>(const char* str, int base) { return std::strtoul(str, NULL, base); }
 template <> unsigned long strto<unsigned long>(const char* str, char*& str_end, int base) { return std::strtoul(str, &str_end, base); }
 template <> unsigned long long strto<unsigned long long>(const char* str) { return std::strtoull(str, NULL, 0); }
 template <> unsigned long long strto<unsigned long long>(const char* str, char*& str_end) { return std::strtoull(str, &str_end, 0); }
+template <> unsigned long long strto<unsigned long long>(const char* str, int base) { return std::strtoull(str, NULL, base); }
 template <> unsigned long long strto<unsigned long long>(const char* str, char*& str_end, int base) { return std::strtoull(str, &str_end, base); }
 template <> float strto<float>(const char* str) { return std::strtof(str, NULL); }
 template <> float strto<float>(const char* str, char*& str_end) { return std::strtof(str, &str_end); }

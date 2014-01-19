@@ -10,6 +10,7 @@
 # include <cmath>
 
 # include "my_lib.hpp"
+# include "my_typedefs.h"
 # include "Array.hpp"
 
 /// A template class which calculates the statistics of a label set.
@@ -332,20 +333,20 @@ template<typename _SUPV_T, typename _N_DAT_T>
 LabelStat<_SUPV_T, _N_DAT_T>& LabelStat<_SUPV_T, _N_DAT_T>::
 istream_this(std::istream& in) {
     clear();
-    char line_str[1024];
-    in.getline(line_str, 1024);
+    char line_str[SIZEOF_LINE];
+    in.getline(line_str, SIZEOF_LINE);
     n_label = strto<_SUPV_T>(line_str);
     label_ = new _SUPV_T[n_label];
     n_x_of_label = new _N_DAT_T[n_label];
     alloc = true;
     for (_SUPV_T i = 0; i < n_label; ++i) {
-        in.getline(line_str, 1024);
+        in.getline(line_str, SIZEOF_LINE);
         char* delimit;
         label_[i] = strto<_SUPV_T>(line_str, delimit);
         n_x_of_label[i] = strto<_N_DAT_T>(delimit);
         n_sample += n_x_of_label[i];
     }
-    in.getline(line_str, 1024);
+    in.getline(line_str, SIZEOF_LINE);
     return *this;
 }
 

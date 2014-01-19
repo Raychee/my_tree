@@ -1,43 +1,61 @@
-train_data_name_prefix = 'caltech101';
-test_data_name_prefix = 'caltech101';
-D_subspace = 100;
-N_bootstrap = 5;
+bin_train   = '../bin/mytree_train';
+bin_test    = '../bin/mytree_test';
+data_dir    = '../data/';
+config_file = '../config';
 
-config_path = fullfile('..', 'config');
+train_file_name = 'caltech_train';
+test_file_name  = 'caltech_test';
+model_dir_name  = 'caltech_model';
 
+d_subspace = 100;
+n_bootstrap = 5;
 
-train_bin_path = fullfile('..', 'bin', 'mytree_train');
-test_bin_path = fullfile('..', 'bin', 'mytree_test');
-train_data_path_prefix = fullfile('..', 'data', train_data_name_prefix);
-test_data_path_prefix = fullfile('..', 'data', test_data_name_prefix);
+n_parallel = 20;
 
-% training
-disp('Converting training data ... ');
-param = data_convert(train_data_path_prefix, X, Y, D_subspace, N_bootstrap);
-train(train_bin_path, train_data_path_prefix, config_path);
+n_label = max(Y);
+n_sample = length(Y);
 
-% testing
-disp('Converting testing data ... ');
-data_convert(test_data_path_prefix, X_, [], param);
-disp('Testing data ... ');
-y = test(test_bin_path, test_data_path_prefix, train_data_path_prefix);
-Y_stat = test_evaluate(y, param.n_label, size(Y_, 2));
-
-[Y_stat_max, Y_test] = max(Y_stat);
-n_correct = length(find(Y_test == Y_));
-Y_stat_ismax = bsxfun(@eq, Y_stat_max, Y_stat);
-Y_not_unique_max = find(sum(Y_stat_ismax) > 1);
-n_correct_worst = n_correct;
-n_correct_best = n_correct;
-for i = Y_not_unique_max
-    label_of_max = find(Y_stat_ismax(:, i));
-    if Y_test(i) == Y_(i)
-        n_correct_worst = n_correct_worst - 1;
-    elseif ~isempty(find(label_of_max == Y_(i), 1))
-        n_correct_best = n_correct_best + 1;
-    end
+disp('Converting training data.');
+[X, scale, offset] = data_scale(X);
+if d_subspace > 0
+    n_subspace = floor(size(X, 1) / d_subspace);
+    subspace = randperm(size(X, 1));
+    X = X(subspace, :);
+else
+    d_subspace = size(X, 1);
+    n_subspace = 1;
 end
-acc_best = n_correct_best / size(Y_, 2);
-acc_worst = n_correct_worst / size(Y_, 2);
+data_convert([data_dir, train_file_name], X, Y, d_subspace, n_subspace);
+
+disp('Converting testing data.');
+X_ = data_scale(X_, scale, offset);
+if d_subspace < size(X, 1)
+    X_ = X_(subspace, :);
+end
+data_convert([data_dir, test_file_name], X_, Y_, d_subspace, n_subspace);
+
+clear('X');
+clear('X_');
+
+disp('Training.');
+train(bin_train, config_file, [data_dir, train_file_name], ...
+      [data_dir, model_dir_name], n_subspace, n_bootstrap, n_parallel);
+
+disp('Testing.');
+y_train = test(bin_test, [data_dir, train_file_name], [data_dir, model_dir_name]);
+y_test = test(bin_test, [data_dir, test_file_name], [data_dir, model_dir_name]);
+Y_train = test_evaluate(y_train, n_label, n_sample);
+Y_test = test_evaluate(y_test, n_label, n_sample);
+
+[acc_best_train, acc_worst_train, n_acc_best_train, n_acc_worst_train] ...
+    = test_stat(Y_train, Y);
+[acc_best_test, acc_worst_test, n_acc_best_test, n_acc_worst_test] ...
+    = test_stat(Y_test, Y_);
 
 disp('Done.');
+disp(['Accuracy on testing data: ', ...
+     num2str(acc_best_test*100), '%(best), ', ...
+     num2str(acc_worst_test*100), '%(worst)']);
+disp(['Accuracy on training data: ', ...
+     num2str(acc_best_train*100), '%(best), ', ...
+     num2str(acc_worst_train*100), '%(worst)']);

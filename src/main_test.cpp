@@ -27,7 +27,7 @@ void print_help();
 
 int main(int argc, const char** argv)
 {
-    char data_file[1024], tree_dir[1024];
+    char data_file[SIZEOF_PATH], tree_dir[SIZEOF_PATH];
     COMP_T* X; DAT_DIM_T D; N_DAT_T N;
     bool detail = false;
 
@@ -76,9 +76,9 @@ void read_data(const char* data_file,
         std::exit(1);
     }
     N = 0;
-    char line_str[16384];
+    char line_str[SIZEOF_LINE];
     std::istringstream line;
-    while (file.getline(line_str, 16384)) {
+    while (file.getline(line_str, SIZEOF_LINE)) {
         int i = 0, line_str_len = std::strlen(line_str);
         for (i = 0; i < line_str_len && line_str[i] == ' '; ++i);
         if (std::isdigit(line_str[i])) ++N;
@@ -100,7 +100,7 @@ void read_data(const char* data_file,
     file.clear();
     file.seekg(0);
     N_DAT_T n = 0;
-    while (n < N && file.getline(line_str, 16384)) {
+    while (n < N && file.getline(line_str, SIZEOF_LINE)) {
         int i = 0, line_str_len = std::strlen(line_str);
         for (i = 0; i < line_str_len && line_str[i] == ' '; ++i);
         if (!std::isdigit(line_str[i])) continue;

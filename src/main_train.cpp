@@ -2,9 +2,16 @@
 # include <iomanip>
 # include <sstream>
 # include <fstream>
+# include <random>
+# include <chrono>
+# include <algorithm>
+# include <cmath>
 # include <cstring>
 # include <cstdlib>
 # include <cstdio>
+# include <sys/types.h>
+# include <sys/stat.h>
+# include <unistd.h>
 
 # include "my_typedefs.h"
 # include "my_lib.hpp"
@@ -17,6 +24,8 @@ enum code {
     LOG_FILE,
     LOG_LEVEL,
     TREE_FILE,
+    N_BOOTSTRAP,
+    I_BOOTSTRAP,
     GD_VERBOSITY,
     GD_INIT_LEARNING_RATE,
     GD_N_ITER,
@@ -48,9 +57,9 @@ enum code {
 
 void read_data(const char* data_file,
                COMP_T*& X, DAT_DIM_T& d, N_DAT_T& N, SUPV_T*& Y);
-void read_args(int   argc,      const char** argv,
-               char* data_file, char*        log_file, char*      tree_dir,
-               char& log_v,
+void read_args(int   argc,      const char**  argv,
+               char* data_file, char*         log_file, char*     tree_dir,
+               char& log_v,     unsigned int& n_bootstrap, unsigned int& i_bootstrap,
                GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   gd_param,
                SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam& sgd_param,
                MySolver::MyParam&                                 my_param,
@@ -65,10 +74,10 @@ void read_config(const char*                                        config_file,
                  MyTree::MyTreeParam&                               my_tree_param);
 void print_help();
 
-int main(int argc, const char** argv)
-{
-
-    char data_file[1024], log_file[1024], tree_dir[1024], log_v = 1;
+int main(int argc, const char** argv){
+    char data_file[SIZEOF_PATH], log_file[SIZEOF_PATH], tree_dir[SIZEOF_PATH];
+    char log_v = 1;
+    unsigned int n_bootstrap = 0, i_bootstrap = 1;
     COMP_T* X; DAT_DIM_T D; N_DAT_T N; SUPV_T* Y;
 
     GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam   gd_param;
@@ -76,7 +85,8 @@ int main(int argc, const char** argv)
     MySolver::MyParam                                 my_param;
     MyTree::MyTreeParam                               my_tree_param;
 
-    read_args(argc, argv, data_file, log_file, tree_dir, log_v,
+    read_args(argc, argv, data_file, log_file, tree_dir, log_v, n_bootstrap, 
+              i_bootstrap, 
               gd_param, sgd_param, my_param, my_tree_param);
     read_data(data_file, X, D, N, Y);
     gd_param.dimension(D);
@@ -86,17 +96,98 @@ int main(int argc, const char** argv)
         log_f.open(log_file);
         if (!log_f.is_open()) {
             std::cerr << "\nFailed opening file: " << log_file << std::endl;
-            std::exit(1);
+            std::exit(-1);
         }
         if (log_v > 2)      gd_param.ostream_of_training_process(log_f);
         else if (log_v > 1) my_param.ostream_of_training_process(log_f);
         else                my_tree_param.ostream_of_training_result(log_f);
     }
-    
-    MyTree tree(gd_param, sgd_param, my_param, my_tree_param);
 
-    tree.train(X, N, Y);
-    tree.save_this(tree_dir);
+    if (!tree_dir[0]) std::strcpy(tree_dir, "model");
+    if (n_bootstrap > 0) {
+        std::size_t tree_dir_prefix_len = std::strlen(tree_dir);
+        if (tree_dir[tree_dir_prefix_len - 1] == '/' ||
+            tree_dir[tree_dir_prefix_len - 1] == '\\') {
+            --tree_dir_prefix_len;
+        }
+        tree_dir[tree_dir_prefix_len++] = '.';
+        std::mt19937_64 rand_gen(std::chrono::system_clock::now().time_since_epoch().count());
+        std::uniform_int_distribution<N_DAT_T> distrib(0, N - 1);
+        N_DAT_T* bootstrap = new N_DAT_T[N];
+        N_DAT_T* remain    = new N_DAT_T[N];
+        std::ofstream bootstrap_file;
+        char format[8];
+        unsigned int n_digits = std::log10(n_bootstrap + i_bootstrap) + 1;
+        std::snprintf(format, 8, "%%0%uu", n_digits);
+        for (unsigned int i = 0; i < n_bootstrap; ++i) {
+            for (N_DAT_T i = 0; i < N; ++i) remain[i] = 0;
+            for (N_DAT_T i = 0; i < N; ++i) {
+                bootstrap[i] = distrib(rand_gen);
+                ++remain[bootstrap[i]];
+            }
+            MyTree tree(gd_param, sgd_param, my_param, my_tree_param);
+            if (my_tree_param.verbosity() > 0)
+                std::cout << "\n################ Bootstrap " << i_bootstrap + i 
+                          << " ################" << std::endl;
+            
+            std::snprintf(tree_dir + tree_dir_prefix_len, SIZEOF_PATH - tree_dir_prefix_len, format, i_bootstrap + i);
+            std::size_t tree_dir_len = std::strlen(tree_dir);
+            if (access(tree_dir, F_OK)) {
+                if (mkdir(tree_dir, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
+                    std::cerr << "\nFailed creating folder: " << tree_dir << std::endl;
+                    std::exit(-1);
+                }
+            }
+            else if (access(tree_dir, R_OK|W_OK|X_OK)) {
+                std::cerr << "\nFailed trying to access folder \""
+                          << tree_dir << "\": Permission denied." << std::endl;
+                std::exit(-1);
+            }
+            else {
+                char command[SIZEOF_PATH];
+                std::snprintf(command, SIZEOF_PATH, "rm %s/*", tree_dir);
+                if (system(command)) {
+                    std::cerr << "\nFailed cleaning folder: " << tree_dir << std::endl;
+                    std::exit(-1);
+                }
+            }
+            tree.train(X, N, Y, bootstrap, N);
+            tree.save_this(tree_dir);
+            std::strcpy(tree_dir + tree_dir_len, "/Bootstrap");
+            bootstrap_file.open(tree_dir);
+            if (!bootstrap_file.is_open()) {
+                std::cerr << "\nFailed opening file: " << tree_dir << std::endl;
+                // std::exit(-1);
+            }
+            for (N_DAT_T i = 0; i < N; ++i) {
+                bootstrap_file << bootstrap[i] << "\n";
+            }
+            bootstrap_file.close();
+            std::strcpy(tree_dir + tree_dir_len, "/Remain");
+            bootstrap_file.open(tree_dir);
+            if (!bootstrap_file.is_open()) {
+                std::cerr << "\nFailed opening file: " << tree_dir << std::endl;
+                // std::exit(-1);
+            }
+            for (N_DAT_T i = 0; i < N; ++i) {
+                if (!remain[i]) {
+                    bootstrap_file << i << "\n";
+                }
+            }
+            bootstrap_file.close();
+        }
+        delete[] bootstrap;
+        delete[] remain;
+    }
+    else {
+        MyTree tree(gd_param, sgd_param, my_param, my_tree_param);
+        if (mkdir(tree_dir, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IROTH) == -1) {
+            std::cerr << "\nFailed creating folder: " << tree_dir << std::endl;
+            std::exit(-1);
+        }
+        tree.train(X, N, Y);
+        tree.save_this(tree_dir);
+    }
 
     log_f.close();
 
@@ -111,12 +202,12 @@ void read_data(const char* data_file,
     std::ifstream file(data_file);
     if (!file.is_open()) {
         std::cerr << "\nFailed opening file: " << data_file << std::endl;
-        std::exit(1);
+        std::exit(-1);
     }
     N = 0; D = 0;
-    char line_str[16384];
+    char line_str[SIZEOF_LINE];
     std::istringstream line;
-    while (file.getline(line_str, 16384)) {
+    while (file.getline(line_str, SIZEOF_LINE)) {
         int i = 0, line_str_len = std::strlen(line_str);
         for (i = 0; i < line_str_len && line_str[i] == ' '; ++i);
         if (std::isdigit(line_str[i])) ++N;
@@ -128,7 +219,7 @@ void read_data(const char* data_file,
         for (; i >= 0 && line_str[i] != ' '; --i);
         if (i < 0) {
             std::cerr << "\nError: Corrputed data file: Cannot find the maximun dimension of the data set" << std::endl;
-            std::exit(1);
+            std::exit(-1);
         }
         line.str(line_str + i);
         DAT_DIM_T d; line >> d;
@@ -141,7 +232,7 @@ void read_data(const char* data_file,
     file.clear();
     file.seekg(0);
     N_DAT_T n = 0;
-    while (n < N && file.getline(line_str, 16384)) {
+    while (n < N && file.getline(line_str, SIZEOF_LINE)) {
         int i = 0, line_str_len = std::strlen(line_str);
         for (i = 0; i < line_str_len && line_str[i] == ' '; ++i);
         if (!std::isdigit(line_str[i])) continue;
@@ -158,7 +249,7 @@ void read_data(const char* data_file,
         else {
             std::cerr << "\nError: Corrputed data file: Wrong format at line "
                       << n << std::endl;
-            std::exit(1);
+            std::exit(-1);
         }
         ++n;
     }
@@ -168,7 +259,7 @@ void read_data(const char* data_file,
 
 void read_args(int   argc,      const char** argv,
                char* data_file, char*        log_file,  char*     tree_dir,
-               char& log_v,
+               char& log_v, unsigned int& n_bootstrap, unsigned int& i_bootstrap,
                GD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::GDParam&   gd_param,
                SGD<COMP_T, SUPV_T, DAT_DIM_T, N_DAT_T>::SGDParam& sgd_param,
                MySolver::MyParam&                                 my_param,
@@ -195,6 +286,12 @@ void read_args(int   argc,      const char** argv,
                     break;
                 case TREE_FILE: assert_arg(last_arg); ++i;
                     std::strcpy(tree_dir, argv[i]);
+                    break;
+                case N_BOOTSTRAP: assert_arg(last_arg); ++i;
+                    n_bootstrap = strto<unsigned int>(argv[i]);
+                    break;
+                case I_BOOTSTRAP: assert_arg(last_arg); ++i;
+                    i_bootstrap = strto<unsigned int>(argv[i]);
                     break;
                 default : std::cerr << "Unrecognized option " << argv[i] << "!\n";
                           exit(1);
@@ -225,6 +322,8 @@ code parse_arg_long(const char* arg) {
     if (!std::strcmp(arg, "config"))    return CONFIG_FILE;
     if (!std::strcmp(arg, "log"))       return LOG_FILE;
     if (!std::strcmp(arg, "log-level")) return LOG_LEVEL;
+    if (!std::strcmp(arg, "bootstrap")) return N_BOOTSTRAP;
+    if (!std::strcmp(arg, "bootstrap-number-starts-by")) return I_BOOTSTRAP;
     return ERROR;
 }
 
@@ -237,10 +336,10 @@ void read_config(const char*                                        config_file,
     std::ifstream file(config_file);
     if (!file.is_open()) {
         std::cerr << "\nFailed opening file: " << config_file << std::endl;
-        std::exit(1);
+        std::exit(-1);
     }
-    char line_str[1024];
-    while (file.getline(line_str, 1024)) {
+    char line_str[SIZEOF_LINE];
+    while (file.getline(line_str, SIZEOF_LINE)) {
         char* str_param, * str_value;
         for (str_value = line_str;
              *str_value != '\0' && *str_value != '=' && *str_value != '#';

@@ -3,6 +3,7 @@
 
 template <typename _TYPE> _TYPE strto(const char* str);
 template <typename _TYPE> _TYPE strto(const char* str, char*& str_end);
+template <typename _TYPE> _TYPE strto(const char* str, int base);
 template <typename _TYPE> _TYPE strto(const char* str, char*& str_end, int base);
 
 char* strtostr(char* str);

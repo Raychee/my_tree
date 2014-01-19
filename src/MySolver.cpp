@@ -132,16 +132,16 @@ MySolver& MySolver::ofstream_this(std::ofstream& out) {
 MySolver& MySolver::istream_this(std::istream& in) {
     clear();
     in >> stat;
-    char line_str[1024];
-    in.getline(line_str, 1024);
+    char line_str[SIZEOF_LINE];
+    in.getline(line_str, SIZEOF_LINE);
     DAT_DIM_T dim = strto<DAT_DIM_T>(line_str);
     if (dim) {
         w = new COMP_T[dim];
         for (DAT_DIM_T i = 0; i < dim; ++i) {
-            in.getline(line_str, 1024);
+            in.getline(line_str, SIZEOF_LINE);
             w[i] = strto<COMP_T>(line_str);
         }
-        in.getline(line_str, 1024);
+        in.getline(line_str, SIZEOF_LINE);
         b = strto<COMP_T>(line_str);
     }
     return *this;

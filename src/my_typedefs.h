@@ -1,6 +1,9 @@
 # ifndef _MY_TYPEDEFS_H
 # define _MY_TYPEDEFS_H
 
+# define SIZEOF_LINE 1048576
+# define SIZEOF_PATH 4096
+
 typedef double        COMP_T;
 // type of the value to be computed (parameters, training samples, etc)
 // alternatives: double / float

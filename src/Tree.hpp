@@ -137,35 +137,35 @@ ostream_this(std::ostream& out) {
 template<class _DATA>
 Tree<_DATA>& Tree<_DATA>::
 save_this(const char* dir) {
-    char path[1024], * filename;
+    char path[SIZEOF_PATH], * filename;
     std::strcpy(path, dir);
     std::size_t dir_len = std::strlen(path);
     std::size_t file_len;
     if (dir_len > 0 && (path[dir_len - 1] != '/' && path[dir_len - 1] != '\\'))
         path[dir_len++] = '/';
     filename = path + dir_len;
-    file_len = 1024 - dir_len;
+    file_len = SIZEOF_PATH - dir_len;
     std::strcpy(filename, "Tree");
     std::ofstream file(path);
     if (!file.is_open()) {
         std::cerr << "\nFailed opening file: " << path << std::endl;
         return *this;
     }
-    SUPV_T node_num = 0;
+    unsigned long node_num = 0;
     file << std::setw(16) << std::setfill('0') << node_num << ".node"
          << "    # root" << std::endl;
     file.close();
-    std::queue<TreeNode*> node_pointer;
-    std::queue<SUPV_T>    node_name;
-    std::queue<SUPV_T>    node_parent_name;
+    std::queue<TreeNode*>     node_pointer;
+    std::queue<unsigned long> node_name;
+    std::queue<unsigned long> node_parent_name;
     node_pointer.push(root);
     node_name.push(node_num);
     node_parent_name.push(0);
     while (!node_pointer.empty()) {
-        TreeNode* node        = node_pointer.front();
-        SUPV_T    name        = node_name.front();
-        SUPV_T    parent_name = node_parent_name.front();
-        std::snprintf(filename, file_len, "%016d.node", name);
+        TreeNode*     node        = node_pointer.front();
+        unsigned long name        = node_name.front();
+        unsigned long parent_name = node_parent_name.front();
+        std::snprintf(filename, file_len, "%016lu.node", name);
         file.open(path);
         if (!file.is_open()) {
             std::cerr << "\nFailed opening file: " << path << std::endl;
@@ -197,21 +197,21 @@ save_this(const char* dir) {
 template<class _DATA>
 Tree<_DATA>& Tree<_DATA>::
 read_this(const char* dir) {
-    char path[1024], * filename, line_str[1024], * filename_str;
+    char path[SIZEOF_PATH], * filename, line_str[SIZEOF_PATH], * filename_str;
     std::strcpy(path, dir);
     std::size_t dir_len = std::strlen(path);
     std::size_t file_len;
     if (dir_len > 0 && (path[dir_len - 1] != '/' && path[dir_len - 1] != '\\'))
         path[dir_len++] = '/';
     filename = path + dir_len;
-    file_len = 1024 - dir_len;
+    file_len = SIZEOF_PATH - dir_len;
     std::strcpy(filename, "Tree");
     std::ifstream file(path);
     if (!file.is_open()) {
         std::cerr << "\nFailed opening file: " << path << std::endl;
         return *this;
     }
-    while(file.getline(line_str, 4096) && !line_str[0]);
+    while(file.getline(line_str, SIZEOF_LINE) && !line_str[0]);
     if (!line_str[0]) {
         std::cerr << "\nFailed finding file for root." << std::endl;
         return *this;
@@ -224,17 +224,17 @@ read_this(const char* dir) {
         std::cerr << "\nFailed opening file: " << path << std::endl;
         return *this;
     }
-    SUPV_T node_num;
+    unsigned long node_num;
     _DATA* data;
-    std::queue<SUPV_T>    node_name;
-    std::queue<TreeNode*> node_parent_pointer;
-    file.getline(line_str, 4096);
-    file.getline(line_str, 4096);
-    unsigned int n_child = strto<unsigned int>(line_str);
+    std::queue<unsigned long> node_name;
+    std::queue<TreeNode*>     node_parent_pointer;
+    file.getline(line_str, SIZEOF_LINE);
+    file.getline(line_str, SIZEOF_LINE);
+    unsigned int n_child = strto<unsigned int>(line_str, 10);
     root = new TreeNode(NULL, NULL, n_child);
     for (unsigned int i = 0; i < n_child; ++i) {
-        file.getline(line_str, 4096);
-        node_num = strto<SUPV_T>(line_str);
+        file.getline(line_str, SIZEOF_LINE);
+        node_num = strto<unsigned long>(line_str, 10);
         node_name.push(node_num);
         node_parent_pointer.push(root);
     }
@@ -243,22 +243,22 @@ read_this(const char* dir) {
     file.close();
     root->pcontent(data);
     while (!node_name.empty()) {
-        SUPV_T    name   = node_name.front();
-        TreeNode* parent = node_parent_pointer.front();
-        std::snprintf(filename, file_len, "%016d.node", name);
+        unsigned long name   = node_name.front();
+        TreeNode*     parent = node_parent_pointer.front();
+        std::snprintf(filename, file_len, "%016lu.node", name);
         file.open(path);
         if (!file.is_open()) {
             std::cerr << "\nFailed opening file: " << path << std::endl;
             return *this;
         }
-        file.getline(line_str, 4096);
-        file.getline(line_str, 4096);
-        unsigned int n_child = strto<unsigned int>(line_str);
+        file.getline(line_str, SIZEOF_LINE);
+        file.getline(line_str, SIZEOF_LINE);
+        unsigned int n_child = strto<unsigned int>(line_str, 10);
         TreeNode* node = new TreeNode(NULL, parent, n_child);
         parent->attach_child(node);
         for (unsigned int i = 0; i < n_child; ++i) {
-            file.getline(line_str, 4096);
-            node_num = strto<SUPV_T>(line_str);
+            file.getline(line_str, SIZEOF_LINE);
+            node_num = strto<unsigned long>(line_str, 10);
             node_name.push(node_num);
             node_parent_pointer.push(node);
         }

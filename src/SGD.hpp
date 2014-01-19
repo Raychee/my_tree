@@ -4,6 +4,8 @@
 # include <iostream>
 # include <cstring>
 # include <limits>
+# include <random>
+# include <chrono>
 
 # include "LabelStat.hpp"
 
@@ -632,9 +634,11 @@ template <typename _COMP_T,
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>& 
 GD<_COMP_T, _SUPV_T, _DAT_DIM_T, _N_DAT_T>::
 rand_index(_N_DAT_T* x, _N_DAT_T n, _N_DAT_T m) {
+    static std::mt19937_64 rand_gen(std::chrono::system_clock::now().time_since_epoch().count());
     if (!m || m > n) m = n;
     for (_N_DAT_T i = 0; i < m; ++i) {
-        _N_DAT_T temp_i = std::rand() % (n - i) + i;
+        std::uniform_int_distribution<N_DAT_T> distrib(i, n - 1);
+        _N_DAT_T temp_i = distrib(rand_gen);
         _N_DAT_T temp   = x[temp_i];
         x[temp_i]       = x[i];
         x[i]            = temp;

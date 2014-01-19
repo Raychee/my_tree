@@ -277,12 +277,17 @@ file = fopen([path,filename], 'w');
 if file == -1
     return;
 end
+X = zeros(2, length(dots));
+Y = zeros(1, length(dots));
 for i = length(dots) : -1 : 1
     x = get(dots(i), 'XData');
     y = get(dots(i), 'YData');
     label = get(dots(i), 'UserData');
     fprintf(file, '%s 1:%f 2:%f\n', label, x, y);
+    X(:, i) = [x; y];
+    Y(i) = str2num(label);
 end
+save([path,filename, '.mat'], 'X', 'Y');
 fclose(file);
 
 
